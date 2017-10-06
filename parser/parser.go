@@ -2153,17 +2153,34 @@ func (p *parser) parseForStmt() ast.Stmt {
 	}
 }
 
-func (p *parser) parseStmt() (s ast.Stmt) {
+func (p *parser) parseStmt() ast.Stmt {
+	return p.parseStmtWithFuncDeclImport(false, false)
+}
+
+func (p *parser) parseStmtWithFuncDeclImport(funcDecl, allowImport bool) (s ast.Stmt) {
 	if p.trace {
 		defer un(trace(p, "Statement"))
 	}
 
+	if p.tok == token.IMPORT && allowImport {
+		s = &ast.DeclStmt{Decl: p.parseGenDecl(token.IMPORT, p.parseImportSpec)}
+		return
+	}
 	switch p.tok {
+	case token.FUNC:
+		if funcDecl {
+			s = &ast.DeclStmt{Decl: p.parseDecl(syncStmt)}
+		} else {
+			s, _ = p.parseSimpleStmt(labelOk)
+			if _, isLabeledStmt := s.(*ast.LabeledStmt); !isLabeledStmt {
+				p.expectSemi()
+			}
+		}
 	case token.CONST, token.TYPE, token.VAR:
 		s = &ast.DeclStmt{Decl: p.parseDecl(syncStmt)}
 	case
 		// tokens that may start an expression
-		token.IDENT, token.INT, token.FLOAT, token.IMAG, token.CHAR, token.STRING, token.FUNC, token.LPAREN, // operands
+		token.IDENT, token.INT, token.FLOAT, token.IMAG, token.CHAR, token.STRING, token.LPAREN, // operands
 		token.LBRACK, token.STRUCT, token.MAP, token.CHAN, token.INTERFACE, // composite types
 		token.ADD, token.SUB, token.MUL, token.AND, token.XOR, token.ARROW, token.NOT: // unary operators
 		s, _ = p.parseSimpleStmt(labelOk)
@@ -2327,10 +2344,7 @@ func (p *parser) parseTypeSpec(doc *ast.CommentGroup, _ token.Token, _ int) ast.
 	// (Global identifiers are resolved in a separate phase after parsing.)
 	spec := &ast.TypeSpec{Doc: doc, Name: ident}
 	p.declare(spec, nil, p.topScope, ast.Typ, ident)
-	if p.tok == token.ASSIGN {
-		spec.Assign = p.pos
-		p.next()
-	}
+	p.mayAcceptTypeAliasAssign(spec)
 	spec.Type = p.parseType()
 	p.expectSemi() // call before accessing p.linecomment
 	spec.Comment = p.lineComment
