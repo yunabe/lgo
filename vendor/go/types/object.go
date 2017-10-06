@@ -55,6 +55,7 @@ type Object interface {
 // Id returns name if it is exported, otherwise it
 // returns the name qualified with the package path.
 func Id(pkg *Package, name string) string {
+	// TODO: Add LGO handling if necessary.
 	if ast.IsExported(name) {
 		return name
 	}
@@ -83,12 +84,17 @@ type object struct {
 	scopePos_ token.Pos
 }
 
-func (obj *object) Parent() *Scope      { return obj.parent }
-func (obj *object) Pos() token.Pos      { return obj.pos }
-func (obj *object) Pkg() *Package       { return obj.pkg }
-func (obj *object) Name() string        { return obj.name }
-func (obj *object) Type() Type          { return obj.typ }
-func (obj *object) Exported() bool      { return ast.IsExported(obj.name) }
+func (obj *object) Parent() *Scope { return obj.parent }
+func (obj *object) Pos() token.Pos { return obj.pos }
+func (obj *object) Pkg() *Package  { return obj.pkg }
+func (obj *object) Name() string   { return obj.name }
+func (obj *object) Type() Type     { return obj.typ }
+func (obj *object) Exported() bool {
+	if obj.pkg != nil && obj.pkg.IsLgo {
+		return true
+	}
+	return ast.IsExported(obj.name)
+}
 func (obj *object) Id() string          { return Id(obj.pkg, obj.name) }
 func (obj *object) String() string      { panic("abstract") }
 func (obj *object) order() uint32       { return obj.order_ }
@@ -130,6 +136,8 @@ type PkgName struct {
 func NewPkgName(pos token.Pos, pkg *Package, name string, imported *Package) *PkgName {
 	return &PkgName{object{nil, pos, pkg, name, Typ[Invalid], 0, token.NoPos}, imported, false}
 }
+
+func (obj *PkgName) Used() bool { return obj.used }
 
 // Imported returns the package that was imported.
 // It is distinct from Pkg(), which is the package containing the import statement.

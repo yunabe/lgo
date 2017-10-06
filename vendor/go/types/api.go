@@ -96,6 +96,9 @@ type Config struct {
 	// type-checked.
 	IgnoreFuncBodies bool
 
+	// If DontIgnoreLgoInit, the body of lgo_init is not ignored even if IgnoreFuncBodies is true.
+	DontIgnoreLgoInit bool
+
 	// If FakeImportC is set, `import "C"` (for packages requiring Cgo)
 	// declares an empty "C" package and errors are omitted for qualified
 	// identifiers referring to package C (which won't find an object).

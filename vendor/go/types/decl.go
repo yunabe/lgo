@@ -338,7 +338,11 @@ func (check *Checker) funcDecl(obj *Func, decl *declInfo) {
 
 	// function body must be type-checked after global declarations
 	// (functions implemented elsewhere have no body)
-	if !check.conf.IgnoreFuncBodies && fdecl.Body != nil {
+	ignoreBody := check.conf.IgnoreFuncBodies
+	if check.conf.DontIgnoreLgoInit && obj.name == "lgo_init" {
+		ignoreBody = false
+	}
+	if !ignoreBody && fdecl.Body != nil {
 		check.later(obj.name, decl, sig, fdecl.Body)
 	}
 }
@@ -450,7 +454,7 @@ func (check *Checker) declStmt(decl ast.Decl) {
 				// the innermost containing block."
 				scopePos := s.Name.Pos()
 				check.declare(check.scope, s.Name, obj, scopePos)
-				check.typeDecl(obj, s.Type, nil, nil, s.Assign.IsValid())
+				check.typeDecl(obj, s.Type, nil, nil, getTypeSpecAssign(s).IsValid())
 
 			default:
 				check.invalidAST(s.Pos(), "const, type, or var declaration expected")

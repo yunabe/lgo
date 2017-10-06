@@ -17,6 +17,10 @@ type Package struct {
 	complete bool
 	imports  []*Package
 	fake     bool // scope lookup errors are silently dropped if package is fake (internal use only)
+
+	// Whether this package is created from lgo source.
+	// If true, objects defined in this package always return true for IsExported.
+	IsLgo bool
 }
 
 // NewPackage returns a new Package for the given package path and name.
@@ -24,6 +28,21 @@ type Package struct {
 func NewPackage(path, name string) *Package {
 	scope := NewScope(Universe, token.NoPos, token.NoPos, fmt.Sprintf("package %q", path))
 	return &Package{path: path, name: name, scope: scope}
+}
+
+// NewPackage returns a new Package for the given package path and name;
+// the name must not be the blank identifier.
+// The package is not complete and contains no explicit imports.
+func NewPackageWithOldValues(path, name string, values []Object) (*Package, *Scope) {
+	if name == "_" {
+		panic("invalid package name _")
+	}
+	vscope := NewScope(Universe, token.NoPos, token.NoPos, fmt.Sprintf("package %q (old values)", path))
+	for _, obj := range values {
+		vscope.Insert(obj)
+	}
+	scope := NewScope(vscope, token.NoPos, token.NoPos, fmt.Sprintf("package %q", path))
+	return &Package{path: path, name: name, scope: scope}, vscope
 }
 
 // Path returns the package path.
