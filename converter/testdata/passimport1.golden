@@ -1,0 +1,9 @@
+package lgo_exec
+
+import fmt "fmt"
+import logger "log"
+
+func lgo_init() {
+	fmt.Println("Hello fmt!")
+	logger.Println("Hello log!")
+}

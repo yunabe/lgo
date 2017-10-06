@@ -1,0 +1,40 @@
+package lgo_exec
+
+func Def_f(n int) int {
+	return n * n
+}
+func Fn(n int) int {
+	b := func() int {
+		return 10
+	}
+	return b()
+}
+
+type Def_st struct{ Def_value int }
+
+func (s *Ref_st) Def_getValue() float32 {
+	return float32(s.Ref_value)
+}
+
+type Def_myInter interface {
+	Method0()
+	Def_method()
+}
+
+func Def_getInter() interface {
+	Def_method()
+} {
+	var i Ref_myInter
+	return i
+}
+func lgo_init() {
+	Ref_v = Ref_f(3)
+	Ref_getInter().Ref_method()
+	Ref_myInter(nil).Method0()
+	Ref_s = Ref_st{Ref_value: 34}
+}
+
+var (
+	Def_v int
+	Def_s Ref_st
+)

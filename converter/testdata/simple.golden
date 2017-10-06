@@ -1,0 +1,51 @@
+package lgo_exec
+
+import (
+	"fmt"
+)
+import renamedio "io"
+
+func fact(n int64) int64 {
+	if n > 0 {
+		return n * fact(n-1)
+	}
+	return 1
+}
+
+type myStruct struct{ value int }
+
+func (m *myStruct) hello(name string) string {
+	return fmt.Sprintf("Hello %s!", name)
+}
+func returnInterface() interface {
+	method(int) float32
+} {
+	panic("not implemented")
+}
+func lgo_init() {
+	sp = &myStruct{}
+	msg0 = sv.hello("World0")
+	msg1 = sp.hello("World1")
+	inter = returnInterface()
+	f = fact(10)
+	pi, pi2 = 3.14, 6.28
+}
+
+const (
+	ca = "hello"
+	cb = "piyo"
+)
+
+var (
+	sv    myStruct
+	sp    *myStruct
+	msg0  string
+	msg1  string
+	inter interface {
+		method(int) float32
+	}
+	f      int64
+	pi     float32
+	pi2    float32
+	reader renamedio.Reader
+)

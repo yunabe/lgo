@@ -1,0 +1,15 @@
+package lgo_exec
+
+import pkg0 "os"
+import (
+	"io/ioutil"
+)
+
+func lgo_init() {
+	f, _ = ioutil.TempFile("a", "b")
+}
+
+var (
+	f *pkg0.File
+	_ error
+)

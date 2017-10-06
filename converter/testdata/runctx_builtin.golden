@@ -1,0 +1,12 @@
+package lgo_exec
+
+import pkg0 "github.com/yunabe/lgo/core"
+
+func lgo_init() {
+	for {
+		select {
+		case <-pkg0.Runctx.Done():
+			break
+		}
+	}
+}

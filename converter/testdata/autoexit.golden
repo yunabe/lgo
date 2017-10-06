@@ -1,0 +1,12 @@
+package lgo_exec
+
+import pkg0 "github.com/yunabe/lgo/core"
+
+func lgo_init() {
+	for i := 0; i < 100; i++ {
+		pkg0.ExitIfCtxDone()
+	}
+	for {
+		pkg0.ExitIfCtxDone()
+	}
+}

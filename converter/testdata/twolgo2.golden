@@ -1,0 +1,14 @@
+package lgo_exec
+
+import pkg0 "lgo/pkg0"
+
+func f() int {
+	return x + pkg0.y
+}
+func lgo_init() {
+	x = pkg0.x * pkg0.x
+}
+
+var (
+	x int
+)

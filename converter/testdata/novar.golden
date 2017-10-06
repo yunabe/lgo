@@ -1,0 +1,5 @@
+package lgo_exec
+
+func f(n int64) int64 {
+	return n * n
+}

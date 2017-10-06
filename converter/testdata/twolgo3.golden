@@ -1,0 +1,7 @@
+package lgo_exec
+
+import pkg0 "lgo/pkg0"
+
+func f() int {
+	return pkg0.x + pkg0.y
+}

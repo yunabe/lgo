@@ -1,0 +1,20 @@
+package lgo_exec
+
+import pkg0 "github.com/yunabe/lgo/core"
+
+func f(n int) int {
+	return n * n
+}
+func lgo_init() {
+	pkg0.LgoRegisterVar("a", &a)
+	pkg0.LgoRegisterVar("b", &b)
+	pkg0.LgoRegisterVar("c", &c)
+	a = 10
+	b = 3.4
+}
+
+var (
+	a int
+	b float64
+	c string
+)

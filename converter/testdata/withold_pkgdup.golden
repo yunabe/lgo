@@ -1,0 +1,14 @@
+package lgo_exec
+
+import pkg0 "bufio"
+import "bufio"
+
+func lgo_init() {
+	r0 = pkg0.NewReader(nil)
+	r1 = bufio.NewReader(nil)
+}
+
+var (
+	r0 *pkg0.Reader
+	r1 *bufio.Reader
+)
