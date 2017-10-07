@@ -11,7 +11,7 @@ from IPython.utils.tempdir import TemporaryDirectory
 
 def install_kernel_spec(user, prefix):
     kernel_json = {
-        "display_name": "lgo",
+        "display_name": "Go (lgo)",
         "language": "go",
     }
     kernel_json["argv"] = ["lgo", "kernel", "--connection_file={connection_file}"]
