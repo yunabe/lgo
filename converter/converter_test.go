@@ -218,20 +218,20 @@ func TestConvert_withOldPkgDup(t *testing.T) {
 
 func TestConvert_twoLgo(t *testing.T) {
 	result := Convert(`
-	func f(n int) int {
-		return n * n
-	}
-	type st struct {
-		value int
-	}
-	func (s *st) getValue() float32 {
-		return float32(s.value)
-	}
-
-	func getUnnamedStruct() struct{x int} {
-		return struct{x int}{10}
-	}
-	`, &Config{LgoPkgPath: "lgo/pkg0"})
+		func f(n int) int {
+			return n * n
+		}
+		type st struct {
+			value int
+		}
+		func (s *st) getValue() float32 {
+			return float32(s.value)
+		}
+	
+		func getUnnamedStruct() struct{x int} {
+			return struct{x int}{10}
+		}
+		`, &Config{LgoPkgPath: "lgo/pkg0"})
 	if result.Err != nil {
 		t.Error(result.Err)
 		return
@@ -241,18 +241,18 @@ func TestConvert_twoLgo(t *testing.T) {
 	st := pkg0.Scope().Lookup("st")
 	gu := pkg0.Scope().Lookup("getUnnamedStruct")
 	result = Convert(`
-	a := f(3)
-	s := st{
-		value: 20,
-	}
-	b := s.value
-	c := s.getValue()
-	d := interface{getValue() float32}(&s)
-	f := d.getValue()
-
-	g := getUnnamedStruct()
-	var h struct{x int} = g
-	`, &Config{
+		a := f(3)
+		s := st{
+			value: 20,
+		}
+		b := s.value
+		c := s.getValue()
+		d := interface{getValue() float32}(&s)
+		f := d.getValue()
+	
+		g := getUnnamedStruct()
+		var h struct{x int} = g
+		`, &Config{
 		Olds: []types.Object{f, st, gu},
 	})
 	if result.Err != nil {
@@ -348,6 +348,53 @@ func TestConvert_rename(t *testing.T) {
 		return
 	}
 	checkGolden(t, result.Src, "testdata/rename.golden")
+}
+
+func TestConvert_renameRefOtherPkgs(t *testing.T) {
+	result := Convert(`
+		func f(n int) int {
+			return n * n
+		}
+		type st struct {
+			value int
+		}
+		func (s *st) getValue() float32 {
+			return float32(s.value)
+		}
+		`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	pkg0 := result.Pkg
+	f := pkg0.Scope().Lookup("f")
+	st := pkg0.Scope().Lookup("st")
+	result = Convert(`
+		a := f(3)
+		s := st{
+			value: 20,
+		}
+		var i interface{} = &s
+		i.(*st).getValue()
+		// Renaming to access unexported names in other packages is broken.
+		func myFunc() {
+			a := f(3)
+			s := st{
+				value: a,
+			}
+			var i interface{} = &s
+			i.(*st).getValue()
+		}
+		`, &Config{
+		DefPrefix: "Def_",
+		RefPrefix: "Ref_",
+		Olds:      []types.Object{f, st},
+	})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/rename_other_pkgs.golden")
 }
 
 func TestConvert_passImport(t *testing.T) {
