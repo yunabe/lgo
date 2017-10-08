@@ -4,10 +4,10 @@ import pkg0 "lgo/pkg0"
 import pkg1 "github.com/yunabe/lgo/core"
 
 func Def_myFunc() {
-	a := Ref_pkg0.f(3)
-	s := Ref_pkg0.st{Ref_value: a}
+	a := pkg0.Ref_f(3)
+	s := pkg0.Ref_st{Ref_value: a}
 	var i interface{} = &s
-	i.(*Ref_pkg0.st).Ref_getValue()
+	i.(*pkg0.Ref_st).Ref_getValue()
 }
 func lgo_init() {
 	Ref_a = pkg0.Ref_f(3)

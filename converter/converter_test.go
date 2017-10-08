@@ -550,3 +550,21 @@ func TestConvert_registerVars(t *testing.T) {
 	}
 	checkGolden(t, result.Src, "testdata/register_vars.golden")
 }
+
+func Test_prependPrefixToID(t *testing.T) {
+	prefix := "Ref_"
+	tests := []struct {
+		name   string
+		expect string
+	}{
+		{name: "x", expect: "Ref_x"},
+		{name: "x.y", expect: "x.Ref_y"},
+	}
+	for _, tt := range tests {
+		ident := &ast.Ident{Name: tt.name}
+		prependPrefixToID(ident, prefix)
+		if ident.Name != tt.expect {
+			t.Errorf("Expected %q for %q but got %q", tt.expect, tt.name, ident.Name)
+		}
+	}
+}
