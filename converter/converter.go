@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"go/types"
 	"sort"
+	"strings"
 
 	"github.com/yunabe/lgo/core" // This is also important to install core package to GOPATH when this package is tested with go test.
 	"github.com/yunabe/lgo/parser"
@@ -512,6 +513,17 @@ func prependPkgToOlds(conf *Config, checker *types.Checker, file *ast.File, immg
 	}
 }
 
+// prependPrefixToID prepends a prefix to the name of ident.
+// It prepends the prefix the last element if ident.Name contains "."
+func prependPrefixToID(indent *ast.Ident, prefix string) {
+	idx := strings.LastIndex(indent.Name, ".")
+	if idx == -1 {
+		indent.Name = prefix + indent.Name
+	} else {
+		indent.Name = indent.Name[:idx+1] + prefix + indent.Name[idx+1:]
+	}
+}
+
 func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *types.Checker, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "", src, 0)
@@ -644,12 +656,12 @@ func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *typ
 		}
 		if pkg.Scope().Lookup(obj.Name()) == obj {
 			// Rename package level symbol.
-			ident.Name = conf.RefPrefix + ident.Name
+			prependPrefixToID(ident, conf.RefPrefix)
 		} else if _, ok := obj.(*types.Func); ok {
 			// Rename methods.
-			ident.Name = conf.RefPrefix + ident.Name
+			prependPrefixToID(ident, conf.RefPrefix)
 		} else if v, ok := obj.(*types.Var); ok && v.IsField() {
-			ident.Name = conf.RefPrefix + ident.Name
+			prependPrefixToID(ident, conf.RefPrefix)
 		}
 	}
 	var buf bytes.Buffer
