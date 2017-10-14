@@ -45,6 +45,13 @@ func loadSharedInternal(buildPkgDir, pkgPath string) {
 	if handle == nil {
 		panic("Failed to open shared object.")
 	}
+
+	// Initialize freshly loaded modules
+	// c.f. plugin_lastmoduleinit in https://golang.org/src/runtime/plugin.go
+	modulesinit()
+	typelinksinit()
+	itabsinit()
+
 	// Don't forget to call init.
 	// TODO: Write unit tests to confirm this.
 	initFuncPC := C.dlsym(handle, C.CString(pkgPath+".init"))
