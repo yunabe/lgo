@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/yunabe/lgo/cmd/runner"
@@ -86,10 +87,19 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 			ExecutionCount: h.execCount,
 		}
 	}
-	// Print the err in the notebook
-	if err = h.runner.Run(ctx, []byte(r.Code)); err != nil {
-		fmt.Fprint(os.Stderr, err)
-	}
+	func() {
+		defer func() {
+			p := recover()
+			if p != nil {
+				// The return value of debug.Stack() ends with \n.
+				fmt.Fprintf(os.Stderr, "panic: %v\n\n%s", p, debug.Stack())
+			}
+		}()
+		// Print the err in the notebook
+		if err = h.runner.Run(ctx, []byte(r.Code)); err != nil {
+			fmt.Fprint(os.Stderr, err)
+		}
+	}()
 	soClose()
 	seClose()
 	<-rDone
