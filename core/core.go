@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"reflect"
 	"runtime"
 	"runtime/debug"
@@ -69,4 +71,13 @@ func LgoRegisterVar(name string, p interface{}) {
 		panic("cannot register a non-pointer")
 	}
 	AllVars[name] = append(AllVars[name], p)
+}
+
+func FinalizeGoRoutine() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "panic: %v\n\n%s", r, debug.Stack())
+	// TODO: Cancel Runctx
 }

@@ -551,6 +551,20 @@ func TestConvert_registerVars(t *testing.T) {
 	checkGolden(t, result.Src, "testdata/register_vars.golden")
 }
 
+func TestConvert_wrapGoStmt(t *testing.T) {
+	result := Convert(`
+	f := func(x, y int) int { return x + y }
+	go func(x int){
+		go f(x, 20)
+	}(10)
+	`, &Config{LgoPkgPath: "lgo/pkg0", RegisterVars: true})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/wrap_gostmt.golden")
+}
+
 func Test_prependPrefixToID(t *testing.T) {
 	prefix := "Ref_"
 	tests := []struct {

@@ -589,6 +589,7 @@ func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *typ
 	if conf.AutoExitCode {
 		injectAutoExitCode(file, immg)
 	}
+	capturePanicInGoRoutine(file, immg)
 
 	// Import lgo packages implicitly referred code inside functions.
 	var newDels []ast.Decl
@@ -673,7 +674,7 @@ func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *typ
 }
 
 func injectAutoExitCode(file *ast.File, immg *importManager) {
-	ast.Walk(forExitInjector{immg}, file)
+	ast.Walk(&forExitInjector{immg}, file)
 }
 
 // Inject core.ExitIfCtxDone() at the top of for-loops bodies.
@@ -681,7 +682,7 @@ type forExitInjector struct {
 	immg *importManager
 }
 
-func (v forExitInjector) Visit(node ast.Node) ast.Visitor {
+func (v *forExitInjector) Visit(node ast.Node) ast.Visitor {
 	f, ok := node.(*ast.ForStmt)
 	if !ok {
 		return v
@@ -693,5 +694,45 @@ func (v forExitInjector) Visit(node ast.Node) ast.Visitor {
 		},
 	}
 	f.Body.List = append([]ast.Stmt{exitif}, f.Body.List...)
+	return v
+}
+
+func capturePanicInGoRoutine(file *ast.File, immg *importManager) {
+	ast.Walk(&wrapGoStmtVisitor{immg}, file)
+}
+
+// wrapGoStmtVisitor injects code to wrap go statements.
+//
+// This converts
+// go f(x, y)
+// to
+// go func() {
+//   core.FinalizeGoRoutine()
+//   f(x, y)
+// }()
+type wrapGoStmtVisitor struct {
+	immg *importManager
+}
+
+func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
+	g, ok := node.(*ast.GoStmt)
+	if !ok {
+		return v
+	}
+	corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
+	fu := &ast.FuncLit{
+		Type: &ast.FuncType{},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.DeferStmt{
+					Call: &ast.CallExpr{
+						Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".FinalizeGoRoutine"),
+					},
+				},
+				&ast.ExprStmt{X: g.Call},
+			},
+		},
+	}
+	g.Call = &ast.CallExpr{Fun: fu}
 	return v
 }
