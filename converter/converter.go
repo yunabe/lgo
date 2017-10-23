@@ -148,7 +148,7 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			if err != nil {
 				panic(fmt.Sprintf("Failed to import core: %v", err))
 			}
-			id.Name = immg.shortName(corePkg) + ".Runctx"
+			id.Name = immg.shortName(corePkg) + ".GetExecContext()"
 		}
 	}
 
@@ -589,7 +589,7 @@ func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *typ
 	if conf.AutoExitCode {
 		injectAutoExitCode(file, immg)
 	}
-	capturePanicInGoRoutine(file, immg)
+	capturePanicInGoRoutine(file, immg, checker.Defs)
 
 	// Import lgo packages implicitly referred code inside functions.
 	var newDels []ast.Decl
@@ -697,8 +697,9 @@ func (v *forExitInjector) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
-func capturePanicInGoRoutine(file *ast.File, immg *importManager) {
-	ast.Walk(&wrapGoStmtVisitor{immg}, file)
+func capturePanicInGoRoutine(file *ast.File, immg *importManager, defs map[*ast.Ident]types.Object) {
+	picker := newNamePicker(defs)
+	ast.Walk(&wrapGoStmtVisitor{immg, picker}, file)
 }
 
 // wrapGoStmtVisitor injects code to wrap go statements.
@@ -707,14 +708,61 @@ func capturePanicInGoRoutine(file *ast.File, immg *importManager) {
 // go f(x, y)
 // to
 // go func() {
-//   core.FinalizeGoRoutine()
+//   defer core.FinalizeGoRoutine(core.InitGoroutine())
 //   f(x, y)
 // }()
 type wrapGoStmtVisitor struct {
-	immg *importManager
+	immg   *importManager
+	picker *namePicker
 }
 
 func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
+	b, ok := node.(*ast.BlockStmt)
+	if !ok {
+		return v
+	}
+	corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
+	for i, stmt := range b.List {
+		ast.Walk(v, stmt)
+		g, ok := stmt.(*ast.GoStmt)
+		if !ok {
+			continue
+		}
+		ectx := v.picker.NewName("ectx")
+		fu := &ast.FuncLit{
+			Type: &ast.FuncType{},
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.DeferStmt{
+						Call: &ast.CallExpr{
+							Fun:  ast.NewIdent(v.immg.shortName(corePkg) + ".FinalizeGoroutine"),
+							Args: []ast.Expr{&ast.Ident{Name: ectx}},
+						},
+					},
+					&ast.ExprStmt{X: g.Call},
+				},
+			},
+		}
+		g.Call = &ast.CallExpr{Fun: fu}
+
+		b.List[i] = &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.AssignStmt{
+					Lhs: []ast.Expr{&ast.Ident{Name: ectx}},
+					Rhs: []ast.Expr{&ast.CallExpr{
+						Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".InitGoroutine"),
+					}},
+					Tok: token.DEFINE,
+				},
+				g,
+			},
+		}
+	}
+	// Do not visit this node again.
+	return nil
+}
+
+func (v *wrapGoStmtVisitor) Visit2(node ast.Node) ast.Visitor {
 	g, ok := node.(*ast.GoStmt)
 	if !ok {
 		return v
@@ -726,7 +774,12 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 			List: []ast.Stmt{
 				&ast.DeferStmt{
 					Call: &ast.CallExpr{
-						Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".FinalizeGoRoutine"),
+						Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".FinalizeGoroutine"),
+						Args: []ast.Expr{
+							&ast.CallExpr{
+								Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".InitGoroutine"),
+							},
+						},
 					},
 				},
 				&ast.ExprStmt{X: g.Call},

@@ -23,9 +23,9 @@ import (
 import "C"
 
 func loadShared(ctx context.Context, buildPkgDir, pkgPath string) (canceled bool) {
-	core.Runctx = ctx
+	core.StartExec(ctx)
 	defer func() {
-		core.Runctx = nil
+		core.FinalizeExec()
 		r := recover()
 		if r == core.Bailout {
 			canceled = true

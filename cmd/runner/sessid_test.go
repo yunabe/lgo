@@ -34,7 +34,7 @@ func TestSessID_marshal(t *testing.T) {
 	if err := newID.Unmarshal(s); err != nil {
 		t.Error(err)
 	}
-	var expTime uint64 = 12345
+	var expTime int64 = 12345
 	if newID.Time != expTime {
 		t.Errorf("Expected %d but got %d", expTime, newID.Time)
 	}

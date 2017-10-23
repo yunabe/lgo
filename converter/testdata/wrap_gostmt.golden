@@ -7,15 +7,21 @@ func lgo_init() {
 	f = func(x, y int) int {
 		return x + y
 	}
-	go func() {
-		defer pkg0.FinalizeGoRoutine()
-		func(x int) {
-			go func() {
-				defer pkg0.FinalizeGoRoutine()
-				f(x, 20)
-			}()
-		}(10)
-	}()
+	{
+		ectx0 := pkg0.InitGoroutine()
+		go func() {
+			defer pkg0.FinalizeGoroutine(ectx0)
+			func(x int) {
+				{
+					ectx := pkg0.InitGoroutine()
+					go func() {
+						defer pkg0.FinalizeGoroutine(ectx)
+						f(x, 20)
+					}()
+				}
+			}(10)
+		}()
+	}
 }
 
 var (

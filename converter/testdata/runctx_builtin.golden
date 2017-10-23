@@ -5,7 +5,7 @@ import pkg0 "github.com/yunabe/lgo/core"
 func lgo_init() {
 	for {
 		select {
-		case <-pkg0.Runctx.Done():
+		case <-pkg0.GetExecContext().Done():
 			break
 		}
 	}
