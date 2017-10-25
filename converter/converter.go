@@ -587,7 +587,7 @@ func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *typ
 
 	// Inject auto-exit code
 	if conf.AutoExitCode {
-		injectAutoExitCode(file, immg)
+		injectAutoExitToFile(file, immg)
 	}
 	capturePanicInGoRoutine(file, immg, checker.Defs)
 
@@ -671,30 +671,6 @@ func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *typ
 		return nil, nil, nil, err
 	}
 	return buf.Bytes(), pkg, checker, nil
-}
-
-func injectAutoExitCode(file *ast.File, immg *importManager) {
-	ast.Walk(&forExitInjector{immg}, file)
-}
-
-// Inject core.ExitIfCtxDone() at the top of for-loops bodies.
-type forExitInjector struct {
-	immg *importManager
-}
-
-func (v *forExitInjector) Visit(node ast.Node) ast.Visitor {
-	f, ok := node.(*ast.ForStmt)
-	if !ok {
-		return v
-	}
-	corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
-	exitif := &ast.ExprStmt{
-		X: &ast.CallExpr{
-			Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".ExitIfCtxDone"),
-		},
-	}
-	f.Body.List = append([]ast.Stmt{exitif}, f.Body.List...)
-	return v
 }
 
 func capturePanicInGoRoutine(file *ast.File, immg *importManager, defs map[*ast.Ident]types.Object) {

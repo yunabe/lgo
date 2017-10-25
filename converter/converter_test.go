@@ -526,9 +526,94 @@ func TestConvert_runctxBuiltin(t *testing.T) {
 
 func TestConvert_autoExitCode(t *testing.T) {
 	result := Convert(`
+	func light(x int) int {
+		y := x * x
+		return y
+	}
+
+	func fcall(x int) int {
+		x = light(x)
+		x += 10
+		x = light(x)
+		x -= 10
+		return light(x)
+	}
+
+	func ifstmt() {
+		x := light(2)
+		if x > 10 {
+		}
+
+		x = light(3)
+		x += light(4)
+		if y := light(10); x - y < 0 {
+		}
+
+		x = light(4)
+		if x < light(10) {
+		}
+	}
+
+	func forstmt() {
+		x := light(1)
+		for i := 0; i < 10; i++ {
+			x += i
+		}
+		y := light(0)
+		for i := light(y);; {
+			y += i
+		}
+	}
+
+	func switchstmt() int {
+		x := light(2)
+		switch x {
+		case x * x:
+			x = 10
+		}
+
+		x = light(3)
+		switch x {
+		case light(4):
+			x = 10
+		}
+
+		// Inject exits into switch bodies.
+		switch x := light(10); x {
+		case 10:
+			light(x)
+			light(x + 1)
+		default:
+			light(x + 2)
+			light(x + 3)
+		}
+		return x
+	}
+
+	func deferstmt() int {
+		x := light(2)
+		defer light(light(4))
+		y := light(3)
+		defer light(5)
+		z := light(10)
+		defer func() {
+			z += light(20)
+			for i := 0; i < x; i++ {
+				z += light(30)
+			}
+			f := func() {
+				z += 1
+			}
+			f()
+			f()
+		}()
+		return x * y + z
+	}
+
 	for i := 0; i < 100; i++ {
 	}
 	for {}
+
 	`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
 	if result.Err != nil {
 		t.Error(result.Err)

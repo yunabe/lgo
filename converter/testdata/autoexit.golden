@@ -2,7 +2,107 @@ package lgo_exec
 
 import pkg0 "github.com/yunabe/lgo/core"
 
+func light(x int) int {
+	pkg0.ExitIfCtxDone()
+	y := x * x
+	return y
+}
+func fcall(x int) int {
+	pkg0.ExitIfCtxDone()
+	x = light(x)
+	x += 10
+	pkg0.ExitIfCtxDone()
+	x = light(x)
+	x -= 10
+	pkg0.ExitIfCtxDone()
+	return light(x)
+}
+func ifstmt() {
+	pkg0.ExitIfCtxDone()
+	x := light(2)
+	if x > 10 {
+	}
+	pkg0.ExitIfCtxDone()
+	x = light(3)
+	pkg0.ExitIfCtxDone()
+	x += light(4)
+	pkg0.ExitIfCtxDone()
+	if y := light(10); x-y < 0 {
+	}
+	pkg0.ExitIfCtxDone()
+	x = light(4)
+	pkg0.ExitIfCtxDone()
+	if x < light(10) {
+	}
+}
+func forstmt() {
+	pkg0.ExitIfCtxDone()
+	x := light(1)
+	for i := 0; i < 10; i++ {
+		pkg0.ExitIfCtxDone()
+		x += i
+	}
+	pkg0.ExitIfCtxDone()
+	y := light(0)
+	pkg0.ExitIfCtxDone()
+	for i := light(y); ; {
+		pkg0.ExitIfCtxDone()
+		y += i
+	}
+}
+func switchstmt() int {
+	pkg0.ExitIfCtxDone()
+	x := light(2)
+	switch x {
+	case x * x:
+		x = 10
+	}
+	pkg0.ExitIfCtxDone()
+	x = light(3)
+	pkg0.ExitIfCtxDone()
+	switch x {
+	case light(4):
+		x = 10
+	}
+	pkg0.ExitIfCtxDone()
+	switch x := light(10); x {
+	case 10:
+		pkg0.ExitIfCtxDone()
+		light(x)
+		pkg0.ExitIfCtxDone()
+		light(x + 1)
+	default:
+		pkg0.ExitIfCtxDone()
+		light(x + 2)
+		pkg0.ExitIfCtxDone()
+		light(x + 3)
+	}
+	return x
+}
+func deferstmt() int {
+	pkg0.ExitIfCtxDone()
+	x := light(2)
+	defer light(light(4))
+	pkg0.ExitIfCtxDone()
+	y := light(3)
+	defer light(5)
+	pkg0.ExitIfCtxDone()
+	z := light(10)
+	defer func() {
+		z += light(20)
+		for i := 0; i < x; i++ {
+			z += light(30)
+		}
+		f := func() {
+			z += 1
+		}
+		f()
+		f()
+	}()
+	return x*y + z
+}
 func lgo_init() {
+	pkg0.ExitIfCtxDone()
 	for i := 0; i < 100; i++ {
 		pkg0.ExitIfCtxDone()
 	}
