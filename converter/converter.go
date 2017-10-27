@@ -19,6 +19,27 @@ const lgoInitFuncName = "lgo_init"
 
 var defaultImporter = importer.Default()
 
+// ErrorList is a list of *Errors.
+// The zero value for an ErrorList is an empty ErrorList ready to use.
+//
+type ErrorList []error
+
+// Add adds an Error with given position and error message to an ErrorList.
+func (p *ErrorList) Add(err error) {
+	*p = append(*p, err)
+}
+
+// An ErrorList implements the error interface.
+func (p ErrorList) Error() string {
+	switch len(p) {
+	case 0:
+		return "no errors"
+	case 1:
+		return p[0].Error()
+	}
+	return fmt.Sprintf("%s (and %d more errors)", p[0], len(p)-1)
+}
+
 func uniqueSortedNames(ids []*ast.Ident) []string {
 	var s []string
 	m := make(map[string]bool)
@@ -33,8 +54,10 @@ func uniqueSortedNames(ids []*ast.Ident) []string {
 	return s
 }
 
-func parseLesserGoString(src string) (f *parser.LGOBlock, err error) {
-	return parser.ParseLesserGoFile(token.NewFileSet(), "", []byte(src), 0)
+func parseLesserGoString(src string) (*token.FileSet, *parser.LGOBlock, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseLesserGoFile(fset, "", []byte(src), 0)
+	return fset, f, err
 }
 
 type phase1Out struct {
@@ -374,7 +397,7 @@ type ConvertResult struct {
 }
 
 func Convert(src string, conf *Config) *ConvertResult {
-	blk, err := parseLesserGoString(src)
+	fset, blk, err := parseLesserGoString(src)
 	if err != nil {
 		return &ConvertResult{Err: err}
 	}
@@ -412,11 +435,16 @@ func Convert(src string, conf *Config) *ConvertResult {
 		Scopes: make(map[ast.Node]*types.Scope),
 		Types:  make(map[ast.Expr]types.TypeAndValue),
 	}
-	checker := types.NewChecker(chConf, token.NewFileSet(), pkg, &info)
+	checker := types.NewChecker(chConf, fset, pkg, &info)
 	checker.Files([]*ast.File{phase1.file})
-	if errs != nil {
-		// TODO: Return all errors.
-		return &ConvertResult{Err: errs[0]}
+	if len(errs) > 0 {
+		var err error
+		if len(errs) > 1 {
+			err = ErrorList(errs)
+		} else {
+			err = errs[0]
+		}
+		return &ConvertResult{Err: err}
 	}
 	convertToPhase2(phase1, pkg, checker, conf, runctx)
 
