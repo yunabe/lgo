@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go/scanner"
 	"go/types"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -110,6 +112,32 @@ func (rn *LgoRunner) isCtxDone(ctx context.Context) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+const maxErrLines = 5
+
+// PrintError prints err to w.
+// If err is scanner.ErrorList or convert.ErrorList, it expands internal errors.
+func PrintError(w io.Writer, err error) {
+	var length int
+	var get func(int) error
+	if lst, ok := err.(scanner.ErrorList); ok {
+		length = len(lst)
+		get = func(i int) error { return lst[i] }
+	} else if lst, ok := err.(converter.ErrorList); ok {
+		length = len(lst)
+		get = func(i int) error { return lst[i] }
+	} else {
+		fmt.Fprintln(w, err.Error())
+		return
+	}
+	for i := 0; i < maxErrLines && i < length; i++ {
+		msg := get(i).Error()
+		if i == maxErrLines-1 && i != length-1 {
+			msg += fmt.Sprintf(" (and %d more errors)", length-1-i)
+		}
+		fmt.Fprintln(w, msg)
 	}
 }
 

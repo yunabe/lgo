@@ -97,7 +97,7 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 		}()
 		// Print the err in the notebook
 		if err = h.runner.Run(ctx, []byte(r.Code)); err != nil {
-			fmt.Fprint(os.Stderr, err)
+			runner.PrintError(os.Stderr, err)
 		}
 	}()
 	soClose()
