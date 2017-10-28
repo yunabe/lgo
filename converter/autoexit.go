@@ -96,17 +96,17 @@ func isHeavyStmt(stm ast.Stmt) bool {
 	return false
 }
 
-func injectAutoExitBlock(block *ast.BlockStmt, injectHead bool, defaultFlag bool, corePkg string) {
-	injectAutoExitToBlockStmtList(&block.List, injectHead, defaultFlag, corePkg)
+func injectAutoExitBlock(block *ast.BlockStmt, injectHead bool, defaultFlag bool, importCore func() string) {
+	injectAutoExitToBlockStmtList(&block.List, injectHead, defaultFlag, importCore)
 }
 
-func injectAutoExitToBlockStmtList(lst *[]ast.Stmt, injectHead bool, defaultFlag bool, corePkg string) {
+func injectAutoExitToBlockStmtList(lst *[]ast.Stmt, injectHead bool, defaultFlag bool, importCore func() string) {
 	newList := make([]ast.Stmt, 0, 2*len(*lst)+1)
 	flag := defaultFlag
 	appendAutoExpt := func() {
 		newList = append(newList, &ast.ExprStmt{
 			X: &ast.CallExpr{
-				Fun: ast.NewIdent(corePkg + ".ExitIfCtxDone"),
+				Fun: ast.NewIdent(importCore() + ".ExitIfCtxDone"),
 			},
 		})
 	}
@@ -116,7 +116,7 @@ func injectAutoExitToBlockStmtList(lst *[]ast.Stmt, injectHead bool, defaultFlag
 	}
 	for i := 0; i < len(*lst); i++ {
 		stmt := (*lst)[i]
-		heavy := injectAutoExitToStmt(stmt, corePkg, flag)
+		heavy := injectAutoExitToStmt(stmt, importCore, flag)
 		if heavy {
 			if flag {
 				appendAutoExpt()
@@ -128,61 +128,63 @@ func injectAutoExitToBlockStmtList(lst *[]ast.Stmt, injectHead bool, defaultFlag
 	*lst = newList
 }
 
-func injectAutoExitToStmt(stm ast.Stmt, corePkg string, prevHeavy bool) bool {
+func injectAutoExitToStmt(stm ast.Stmt, importCore func() string, prevHeavy bool) bool {
 	heavy := isHeavyStmt(stm)
 	switch stm := stm.(type) {
 	case *ast.ForStmt:
-		injectAutoExit(stm.Init, corePkg)
-		injectAutoExit(stm.Cond, corePkg)
-		injectAutoExit(stm.Post, corePkg)
-		injectAutoExitBlock(stm.Body, true, heavy, corePkg)
+		injectAutoExit(stm.Init, importCore)
+		injectAutoExit(stm.Cond, importCore)
+		injectAutoExit(stm.Post, importCore)
+		injectAutoExitBlock(stm.Body, true, heavy, importCore)
 	case *ast.IfStmt:
-		injectAutoExit(stm.Init, corePkg)
-		injectAutoExit(stm.Cond, corePkg)
-		injectAutoExitBlock(stm.Body, false, heavy, corePkg)
+		injectAutoExit(stm.Init, importCore)
+		injectAutoExit(stm.Cond, importCore)
+		injectAutoExitBlock(stm.Body, false, heavy, importCore)
 	case *ast.SwitchStmt:
-		injectAutoExit(stm.Init, corePkg)
-		injectAutoExit(stm.Tag, corePkg)
+		injectAutoExit(stm.Init, importCore)
+		injectAutoExit(stm.Tag, importCore)
 		for _, l := range stm.Body.List {
 			cas := l.(*ast.CaseClause)
-			injectAutoExitToBlockStmtList(&cas.Body, false, heavy, corePkg)
+			injectAutoExitToBlockStmtList(&cas.Body, false, heavy, importCore)
 		}
 	case *ast.BlockStmt:
-		injectAutoExitBlock(stm, true, prevHeavy, corePkg)
+		injectAutoExitBlock(stm, true, prevHeavy, importCore)
 	case *ast.DeferStmt:
 		// Do not inject autoexit code inside a function defined in a defer statement.
 	default:
-		injectAutoExit(stm, corePkg)
+		injectAutoExit(stm, importCore)
 	}
 	return heavy
 }
 
-func injectAutoExit(node ast.Node, corePkg string) {
+func injectAutoExit(node ast.Node, importCore func() string) {
 	if node == nil {
 		return
 	}
-	v := autoExitInjector{corePkg: corePkg}
+	v := autoExitInjector{importCore: importCore}
 	ast.Walk(&v, node)
 }
 
 type autoExitInjector struct {
-	corePkg string
+	importCore func() string
 }
 
 func (v *autoExitInjector) Visit(node ast.Node) ast.Visitor {
 	if decl, ok := node.(*ast.FuncDecl); ok {
-		injectAutoExitBlock(decl.Body, true, false, v.corePkg)
+		injectAutoExitBlock(decl.Body, true, false, v.importCore)
 		return nil
 	}
 	if fn, ok := node.(*ast.FuncLit); ok {
-		injectAutoExitBlock(fn.Body, true, false, v.corePkg)
+		injectAutoExitBlock(fn.Body, true, false, v.importCore)
 		return nil
 	}
 	return v
 }
 
 func injectAutoExitToFile(file *ast.File, immg *importManager) {
-	corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
-	coreName := immg.shortName(corePkg)
-	injectAutoExit(file, coreName)
+	importCore := func() string {
+		corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
+		return immg.shortName(corePkg)
+	}
+	injectAutoExit(file, importCore)
 }

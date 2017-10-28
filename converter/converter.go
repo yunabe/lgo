@@ -314,10 +314,9 @@ func newImportManager(current *types.Package, file *ast.File, checker *types.Che
 	for _, name := range fileScope.Names() {
 		obj := fileScope.Lookup(name)
 		pname, ok := obj.(*types.PkgName)
-		if !ok {
-			continue
+		if ok {
+			names[pname.Imported()] = name
 		}
-		names[pname.Imported()] = name
 	}
 	return &importManager{
 		checker:   checker,

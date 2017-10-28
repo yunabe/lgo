@@ -622,6 +622,31 @@ func TestConvert_autoExitCode(t *testing.T) {
 	checkGolden(t, result.Src, "testdata/autoexit.golden")
 }
 
+func TestConvert_autoExitCodeImportOnly(t *testing.T) {
+	result := Convert(`
+	import (
+		"fmt"
+		"os"
+	)
+	`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	if len(result.Src) != 0 {
+		t.Errorf("Expected an empty src but got %q", result.Src)
+	}
+}
+
+func TestConvert_autoExitCodeVarOnly(t *testing.T) {
+	result := Convert(`var x int`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/autoexit_varonly.golden")
+}
+
 func TestConvert_registerVars(t *testing.T) {
 	result := Convert(`
 	a := 10
