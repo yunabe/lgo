@@ -163,16 +163,25 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 	immg := newImportManager(pkg, ph1.file, checker)
 	prependPkgToOlds(conf, checker, ph1.file, immg)
 	if runctx != nil {
-		for id, def := range checker.Uses {
-			if def != runctx {
-				continue
+		rewriteExpr(ph1.file, func(expr ast.Expr) ast.Expr {
+			id, ok := expr.(*ast.Ident)
+			if !ok {
+				return expr
+			}
+			if checker.Uses[id] != runctx {
+				return expr
 			}
 			corePkg, err := defaultImporter.Import(core.SelfPkgPath)
 			if err != nil {
 				panic(fmt.Sprintf("Failed to import core: %v", err))
 			}
-			id.Name = immg.shortName(corePkg) + ".GetExecContext()"
-		}
+			return &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   &ast.Ident{Name: immg.shortName(corePkg)},
+					Sel: &ast.Ident{Name: "GetExecContext"},
+				},
+			}
+		})
 	}
 
 	var newInitBody []ast.Stmt
@@ -196,7 +205,10 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 				}
 
 				ph1.lastExpr.X = &ast.CallExpr{
-					Fun:  ast.NewIdent(immg.shortName(corePkg) + ".LgoPrintln"),
+					Fun: &ast.SelectorExpr{
+						X:   &ast.Ident{Name: immg.shortName(corePkg)},
+						Sel: &ast.Ident{Name: "LgoPrintln"},
+					},
 					Args: []ast.Expr{target},
 				}
 			}
@@ -214,7 +226,7 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 					if spec.Values != nil {
 						var lhs []ast.Expr
 						for _, name := range spec.Names {
-							lhs = append(lhs, name)
+							lhs = append(lhs, &ast.Ident{Name: name.Name})
 						}
 						newInitBody = append(newInitBody, &ast.AssignStmt{
 							Lhs: lhs,
@@ -265,7 +277,10 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			// TODO: Reconsider varSpecs type.
 			for _, name := range vs.(*ast.ValueSpec).Names {
 				call := &ast.CallExpr{
-					Fun: ast.NewIdent(immg.shortName(corePkg) + ".LgoRegisterVar"),
+					Fun: &ast.SelectorExpr{
+						X:   &ast.Ident{Name: immg.shortName(corePkg)},
+						Sel: &ast.Ident{Name: "LgoRegisterVar"},
+					},
 					Args: []ast.Expr{
 						&ast.BasicLit{
 							Kind:  token.STRING,
@@ -372,7 +387,7 @@ func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident,
 		panic(fmt.Sprintf("Failed to parse type expr %q: %v", typStr, err))
 	}
 	return &ast.ValueSpec{
-		Names: []*ast.Ident{ident},
+		Names: []*ast.Ident{&ast.Ident{Name: ident.Name}},
 		Type:  typExr,
 	}
 }
@@ -447,13 +462,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 	}
 	convertToPhase2(phase1, pkg, checker, conf, runctx)
 
-	var buf bytes.Buffer
-	err = format.Node(&buf, token.NewFileSet(), phase1.file)
-	if err != nil {
-		return &ConvertResult{Err: err}
-	}
-	fsrc := buf.Bytes()
-	fsrc, fpkg, fcheck, err := finalCheckAndRename(fsrc, conf)
+	fsrc, fpkg, fcheck, err := finalCheckAndRename(phase1.file, fset, conf)
 	if err != nil {
 		return &ConvertResult{Err: err}
 	}
@@ -533,11 +542,23 @@ func prependPkgToOlds(conf *Config, checker *types.Checker, file *ast.File, immg
 		qualifiedID: make(map[*ast.Ident]bool),
 	}
 	ast.Walk(qif, file)
-	for id, obj := range checker.Uses {
-		if isOld[obj] && !qif.qualifiedID[id] {
-			id.Name = immg.shortName(obj.Pkg()) + "." + id.Name
+	rewriteExpr(file, func(expr ast.Expr) ast.Expr {
+		id, ok := expr.(*ast.Ident)
+		if !ok {
+			return expr
 		}
-	}
+		obj, ok := checker.Uses[id]
+		if !ok {
+			return expr
+		}
+		if !isOld[obj] || qif.qualifiedID[id] {
+			return expr
+		}
+		return &ast.SelectorExpr{
+			X:   &ast.Ident{Name: immg.shortName(obj.Pkg())},
+			Sel: id,
+		}
+	})
 }
 
 // prependPrefixToID prepends a prefix to the name of ident.
@@ -551,13 +572,7 @@ func prependPrefixToID(indent *ast.Ident, prefix string) {
 	}
 }
 
-func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *types.Checker, error) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "", src, 0)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
+func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]byte, *types.Package, *types.Checker, error) {
 	var errs []error
 	chConf := &types.Config{
 		Importer: newImporterWithOlds(conf.Olds),
@@ -693,7 +708,7 @@ func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *typ
 		}
 	}
 	var buf bytes.Buffer
-	err = format.Node(&buf, token.NewFileSet(), file)
+	err := format.Node(&buf, token.NewFileSet(), file)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -738,7 +753,10 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 				List: []ast.Stmt{
 					&ast.DeferStmt{
 						Call: &ast.CallExpr{
-							Fun:  ast.NewIdent(v.immg.shortName(corePkg) + ".FinalizeGoroutine"),
+							Fun: &ast.SelectorExpr{
+								X:   &ast.Ident{Name: v.immg.shortName(corePkg)},
+								Sel: &ast.Ident{Name: "FinalizeGoroutine"},
+							},
 							Args: []ast.Expr{&ast.Ident{Name: ectx}},
 						},
 					},
@@ -763,32 +781,4 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 	}
 	// Do not visit this node again.
 	return nil
-}
-
-func (v *wrapGoStmtVisitor) Visit2(node ast.Node) ast.Visitor {
-	g, ok := node.(*ast.GoStmt)
-	if !ok {
-		return v
-	}
-	corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
-	fu := &ast.FuncLit{
-		Type: &ast.FuncType{},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.DeferStmt{
-					Call: &ast.CallExpr{
-						Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".FinalizeGoroutine"),
-						Args: []ast.Expr{
-							&ast.CallExpr{
-								Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".InitGoroutine"),
-							},
-						},
-					},
-				},
-				&ast.ExprStmt{X: g.Call},
-			},
-		},
-	}
-	g.Call = &ast.CallExpr{Fun: fu}
-	return v
 }

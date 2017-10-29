@@ -38,6 +38,17 @@ func TestConvertErrors(t *testing.T) {
 				"2:6: no new variables on left side of :=",
 			},
 		},
+		{
+			name: "inside function",
+			src: `
+			func f(x int) int {
+				return 1.23 * x
+			}
+			`,
+			errors: []string{
+				"2:12: 1.23 (untyped float constant) truncated to int",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
