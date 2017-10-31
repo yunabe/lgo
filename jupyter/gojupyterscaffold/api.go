@@ -8,6 +8,7 @@ type RequestHandlers interface {
 		req *ExecuteRequest,
 		writeStream func(name, text string),
 		writeDisplayData func(data *DisplayData)) *ExecuteResult
+	HandleInspect(req *InspectRequest) *InspectReply
 }
 
 type KernelInfo struct {
@@ -31,6 +32,27 @@ type ExecuteRequest struct {
 	StoreHistory bool   `json:"store_history"`
 	AllowStdin   bool   `json:"allow_stdin"`
 	StopOnError  bool   `json:"stop_on_error"`
+}
+
+// See http://jupyter-client.readthedocs.io/en/latest/messaging.html#introspection
+type InspectRequest struct {
+	Code      string `json:"code"`
+	CursorPos int    `json:"cursor_pos"`
+	// The level of detail desired.  In IPython, the default (0) is equivalent to typing
+	// 'x?' at the prompt, 1 is equivalent to 'x??'.
+	// The difference is up to kernels, but in IPython level 1 includes the source code
+	// if available.
+	DetailLevel int `json:"detail_level"`
+}
+
+// See http://jupyter-client.readthedocs.io/en/latest/messaging.html#introspection
+type InspectReply struct {
+	// 'ok' if the request succeeded or 'error', with error information as in all other replies.
+	Status string `json:"status"`
+	// found should be true if an object was found, false otherwise
+	Found bool `json:"found"`
+	// data can be empty if nothing is found
+	Data map[string]interface{} `json:"data,omitempty"`
 }
 
 // http://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results

@@ -1,10 +1,12 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"go/scanner"
+	"go/token"
 	"go/types"
 	"io"
 	"io/ioutil"
@@ -196,6 +198,38 @@ func (rn *LgoRunner) Run(ctx context.Context, src []byte) error {
 		return ErrInterrupted
 	}
 	return nil
+}
+
+// Inspect analyzes src and returns the document of an identifier at index (0-based).
+func (rn *LgoRunner) Inspect(ctx context.Context, src string, index int) (string, error) {
+	var olds []types.Object
+	// TODO: Protect rn.vars and rn.imports with locks to make them goroutine safe.
+	for _, obj := range rn.vars {
+		olds = append(olds, obj)
+	}
+	var oldImports []*types.PkgName
+	for _, im := range rn.imports {
+		oldImports = append(oldImports, im)
+	}
+	doc, query := converter.InspectIdent(src, token.Pos(index+1), &converter.Config{
+		Olds:       olds,
+		OldImports: oldImports,
+		DefPrefix:  "LgoExport_",
+		RefPrefix:  "LgoExport_",
+	})
+	if doc != "" {
+		return doc, nil
+	}
+	if query == "" {
+		return "", nil
+	}
+	cmd := exec.CommandContext(ctx, "go", "doc", query)
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 func (rn *LgoRunner) CleanUp() error {

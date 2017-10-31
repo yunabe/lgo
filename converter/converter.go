@@ -441,6 +441,14 @@ func (v *findIdentVisitor) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
+func InspectIdent(src string, pos token.Pos, conf *Config) (doc, query string) {
+	obj, local := inspectObject(src, pos, conf)
+	if obj == nil {
+		return
+	}
+	return getDocOrGoDocQuery(obj, local)
+}
+
 func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, isLocal bool) {
 	// TODO: Consolidate code with Convert.
 	fset, blk, _ := parseLesserGoString(src)

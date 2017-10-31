@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"html"
 	"log"
 	"os"
 	"time"
@@ -61,6 +62,20 @@ loop:
 		stream("stdout", "Done!")
 	}
 	return res
+}
+
+func (*handlers) HandleInspect(req *scaffold.InspectRequest) *scaffold.InspectReply {
+	return &scaffold.InspectReply{
+		Status: "ok",
+		Found:  true,
+		Data: map[string]interface{}{
+			// text/plain is shown when Shift+Tab is pushed.
+			"text/plain": fmt.Sprintf("Code: %q, pos: %d, detail: %d", req.Code, req.CursorPos, req.DetailLevel),
+			// text/html is shown when an inspection window is expanded.
+			"text/html": fmt.Sprintf("code: <pre>%s</pre>pos: <b>%d</b><br>detail: <i>%d</i>",
+				html.EscapeString(req.Code), req.CursorPos, req.DetailLevel),
+		},
+	}
 }
 
 func main() {

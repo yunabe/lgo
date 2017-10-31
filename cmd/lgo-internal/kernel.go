@@ -118,6 +118,36 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 	}
 }
 
+func (h *handlers) HandleInspect(r *scaffold.InspectRequest) *scaffold.InspectReply {
+	index := -1
+	count := 0
+	for offset := range r.Code {
+		count++
+		if count > r.CursorPos {
+			index = offset
+			break
+		}
+	}
+	if index < 0 {
+		return nil
+	}
+	doc, err := h.runner.Inspect(context.Background(), r.Code, index)
+	if err != nil {
+		log.Printf("Failed to inspect: %v", err)
+		return nil
+	}
+	if doc == "" {
+		return nil
+	}
+	return &scaffold.InspectReply{
+		Status: "ok",
+		Found:  true,
+		Data: map[string]interface{}{
+			"text/plain": doc,
+		},
+	}
+}
+
 func kernelMain(gopath, lgopath string, sessID *runner.SessionID) {
 	server, err := scaffold.NewServer(*connectionFile, &handlers{
 		runner: runner.NewLgoRunner(gopath, lgopath, sessID),
