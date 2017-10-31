@@ -162,6 +162,7 @@ func convertToPhase1(blk *parser.LGOBlock) (out phase1Out) {
 func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, conf *Config, runctx types.Object) {
 	immg := newImportManager(pkg, ph1.file, checker)
 	prependPkgToOlds(conf, checker, ph1.file, immg)
+	// TODO: Should we move this after final check?
 	if runctx != nil {
 		rewriteExpr(ph1.file, func(expr ast.Expr) ast.Expr {
 			id, ok := expr.(*ast.Ident)
@@ -379,6 +380,10 @@ func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident,
 	if obj == nil {
 		return nil
 	}
+	if basic, ok := obj.Type().(*types.Basic); ok && basic.Kind() == types.Invalid {
+		// This check is important when convertToPhase2 is called from inspectObject.
+		return nil
+	}
 	typStr := types.TypeString(obj.Type(), func(pkg *types.Package) string {
 		return immg.shortName(pkg)
 	})
@@ -408,6 +413,183 @@ type ConvertResult struct {
 	Checker *types.Checker
 	Imports []*types.PkgName
 	Err     error
+}
+
+// findIdentWithPos finds an ast.Ident node at pos. Returns nil if pos does not point an Ident.
+func findIdentWithPos(node ast.Node, pos token.Pos) *ast.Ident {
+	v := &findIdentVisitor{pos: pos}
+	ast.Walk(v, node)
+	return v.ident
+}
+
+type findIdentVisitor struct {
+	pos   token.Pos
+	ident *ast.Ident
+}
+
+func (v *findIdentVisitor) Visit(node ast.Node) ast.Visitor {
+	if node == nil || v.ident != nil {
+		return nil
+	}
+	if v.pos < node.Pos() || node.End() <= v.pos {
+		return nil
+	}
+	if id, ok := node.(*ast.Ident); ok {
+		v.ident = id
+		return nil
+	}
+	return v
+}
+
+func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, isLocal bool) {
+	// TODO: Consolidate code with Convert.
+	fset, blk, _ := parseLesserGoString(src)
+	var target *ast.Ident
+	for _, stmt := range blk.Stmts {
+		if id := findIdentWithPos(stmt, pos); id != nil {
+			target = id
+			break
+		}
+	}
+	if target == nil {
+		return nil, false
+	}
+	phase1 := convertToPhase1(blk)
+
+	// TODO: Add a proper name to the package though it's not used at this moment.
+	pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
+	// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
+	for _, im := range conf.OldImports {
+		pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
+		vscope.Insert(pname)
+	}
+	var runctx types.Object
+	if vscope.Lookup("runctx") == nil {
+		ctxP, err := defaultImporter.Import("context")
+		if err != nil {
+			panic(fmt.Sprintf("Failed to import context: %v", err))
+		}
+		runctx = types.NewVar(token.NoPos, pkg, "runctx", ctxP.Scope().Lookup("Context").Type())
+		vscope.Insert(runctx)
+	}
+
+	// var errs []error
+	chConf := &types.Config{
+		Importer: defaultImporter,
+		Error: func(err error) {
+			//	errs = append(errs, err)
+		},
+		IgnoreFuncBodies:  true,
+		DontIgnoreLgoInit: true,
+	}
+	var info = types.Info{
+		Defs:   make(map[*ast.Ident]types.Object),
+		Uses:   make(map[*ast.Ident]types.Object),
+		Scopes: make(map[ast.Node]*types.Scope),
+		Types:  make(map[ast.Expr]types.TypeAndValue),
+	}
+	checker := types.NewChecker(chConf, fset, pkg, &info)
+	checker.Files([]*ast.File{phase1.file})
+
+	convertToPhase2(phase1, pkg, checker, conf, runctx)
+	{
+		chConf := &types.Config{
+			Importer: defaultImporter,
+			Error: func(err error) {
+				//	errs = append(errs, err)
+			},
+			IgnoreFuncBodies:  false,
+			DontIgnoreLgoInit: true,
+		}
+		var info = types.Info{
+			Defs:   make(map[*ast.Ident]types.Object),
+			Uses:   make(map[*ast.Ident]types.Object),
+			Scopes: make(map[ast.Node]*types.Scope),
+			Types:  make(map[ast.Expr]types.TypeAndValue),
+		}
+		checker := types.NewChecker(chConf, fset, pkg, &info)
+		checker.Files([]*ast.File{phase1.file})
+		obj := checker.Uses[target]
+		if obj == nil {
+			return nil, false
+		}
+		return obj, obj.Pkg() == pkg
+	}
+}
+
+// getDocOrGoDocQuery returns a doc string for obj or a query to retrieve a document with go doc (An argument of go doc command).
+// getDocOrGoDocQuery returns ("", "") if we do not show anything for obj.
+func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query string) {
+	if pkg, _ := obj.(*types.PkgName); pkg != nil {
+		query = pkg.Imported().Path()
+		return
+	}
+	if fn, _ := obj.(*types.Func); fn != nil {
+		if isLocal {
+			doc = fn.Type().String()
+			return
+		}
+		sig := fn.Type().(*types.Signature)
+		recv := sig.Recv()
+		if recv == nil {
+			query = fn.Pkg().Path() + "." + fn.Name()
+			return
+		}
+		recv.Name()
+		var recvName string
+		switch recv := recv.Type().(type) {
+		case *types.Named:
+			recvName = recv.Obj().Name()
+		case *types.Pointer:
+			recvName = recv.Elem().(*types.Named).Obj().Name()
+		case *types.Interface:
+			scope := fn.Pkg().Scope()
+			for _, name := range scope.Names() {
+				if tyn, _ := scope.Lookup(name).(*types.TypeName); tyn != nil {
+					if named, _ := tyn.Type().(*types.Named); named != nil {
+						if named.Underlying() == recv {
+							recvName = name
+							break
+						}
+					}
+				}
+			}
+		default:
+			panic(fmt.Errorf("not supported: %#v", recv))
+		}
+		if recvName != "" {
+			query = fn.Pkg().Path() + "." + recvName + "." + fn.Name()
+		}
+		return
+	}
+	if v, _ := obj.(*types.Var); v != nil {
+		if v.IsField() {
+			// Not implemented
+			return
+		}
+		if isLocal {
+			doc = v.String()
+			return
+		}
+		query = v.Pkg().Path() + "." + v.Name()
+		return
+	}
+	if c, _ := obj.(*types.Const); c != nil {
+		if isLocal {
+			// Not implemented
+			doc = c.String()
+			return
+		}
+		query = c.Pkg().Path() + "." + c.Name()
+	}
+	if tyn, _ := obj.(*types.TypeName); tyn != nil {
+		if isLocal {
+			panic("not implemented")
+		}
+		query = tyn.Pkg().Path() + "." + tyn.Name()
+		return
+	}
+	return
 }
 
 func Convert(src string, conf *Config) *ConvertResult {
