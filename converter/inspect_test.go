@@ -37,7 +37,7 @@ func TestInspectRefs(t *testing.T) {
 			doc: "const s untyped int",
 		},
 		{
-			name: "global variable",
+			name: "global_variable",
 			src: `
 			import (
 				"fmt"
@@ -48,8 +48,7 @@ func TestInspectRefs(t *testing.T) {
 			)
 
 			func sum(x, y int) { [cur]s = x + y }`,
-			// TODO: Fix this
-			doc: "var cmd/hello.s int",
+			doc: "var s int",
 		},
 		{
 			name: "global_const",
@@ -57,8 +56,53 @@ func TestInspectRefs(t *testing.T) {
 			const myVal = 10
 			x := [cur]myVal * 10
 			`,
-			// TODO: Fix this
-			doc: "const cmd/hello.myVal untyped int",
+			doc: "const myVal untyped int",
+		},
+		{
+			name: "func",
+			src: `
+			func fn(x int) int { return x * x }
+			[cur]fn(10)
+			`,
+			doc: "func fn(x int) int",
+		},
+		{
+			name: "method",
+			src: `
+			type typ int
+			func (t typ) Int() int { return int(t) }
+
+			x := typ(123)
+			x.[cur]Int()`,
+			// TODO: Includes a receiver.
+			doc: "func Int() int",
+		},
+		{
+			name: "interface_method",
+			src: `
+			type hello interface {
+				sayHello(name string)
+			}
+			var h hello
+			h.[cur]sayHello()`,
+			// TODO: Includes a receiver.
+			doc: "func sayHello(name string)",
+		},
+		{
+			name: "custom_type",
+			src: `
+			type message string
+			var m [cur]message`,
+			// TODO: Return a doc.
+		},
+		{
+			name: "custom_type_var",
+			src: `
+			type message string
+			var m message
+			[cur]m`,
+			// TODO: Remove "cmd/hello.".
+			doc: "var m cmd/hello.message",
 		},
 		{
 			name: "package",
@@ -172,23 +216,32 @@ func TestInspectRefs(t *testing.T) {
 			[cur]x + 10`,
 		},
 		{
-			name: "invalid const val",
+			name: "invalid_const_val",
 			src: `
 			func sum(x, y int) int { return x + y }
 			const x = sum(10, 20)
 			[cur]x + 10`,
 			// TODO: Fix this
-			doc: "const cmd/hello.x invalid type",
+			doc: "const x invalid type",
 		},
 		{
 			name: "invalid syntax",
 			src:  `[cur]x := 3 +`,
 		},
 		{
-			name: "invalid syntax after cur",
+			name: "invalid_syntax_after_cur",
 			src: `[cur]x := 3 + 4
 			y := x +`,
-			doc: "var cmd/hello.x int",
+			doc: "var x int",
+		},
+		{
+			name: "right_after_id",
+			src: `
+			func f(x int) (y int) {
+				s := x+1
+				return s[cur]*x
+			}`,
+			doc: "var s int",
 		},
 	}
 	for _, tt := range tests {

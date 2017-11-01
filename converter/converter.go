@@ -416,6 +416,7 @@ type ConvertResult struct {
 }
 
 // findIdentWithPos finds an ast.Ident node at pos. Returns nil if pos does not point an Ident.
+// findIdentWithPos returns an identifier if pos points the identifier (start <= pos < end) or pos is right after the identifier (pos == end).
 func findIdentWithPos(node ast.Node, pos token.Pos) *ast.Ident {
 	v := &findIdentVisitor{pos: pos}
 	ast.Walk(v, node)
@@ -431,7 +432,7 @@ func (v *findIdentVisitor) Visit(node ast.Node) ast.Visitor {
 	if node == nil || v.ident != nil {
 		return nil
 	}
-	if v.pos < node.Pos() || node.End() <= v.pos {
+	if v.pos < node.Pos() || node.End() < v.pos {
 		return nil
 	}
 	if id, ok := node.(*ast.Ident); ok {
@@ -534,7 +535,11 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 	}
 	if fn, _ := obj.(*types.Func); fn != nil {
 		if isLocal {
-			doc = fn.Type().String()
+			// TODO: Print the receiver.
+			var buf bytes.Buffer
+			buf.WriteString("func " + fn.Name())
+			types.WriteSignature(&buf, fn.Type().(*types.Signature), nil)
+			doc = buf.String()
 			return
 		}
 		sig := fn.Type().(*types.Signature)
@@ -563,7 +568,7 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 				}
 			}
 		default:
-			panic(fmt.Errorf("not supported: %#v", recv))
+			panic(fmt.Errorf("Unexpected receiver type: %#v", recv))
 		}
 		if recvName != "" {
 			query = fn.Pkg().Path() + "." + recvName + "." + fn.Name()
@@ -576,7 +581,8 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 			return
 		}
 		if isLocal {
-			doc = v.String()
+			// Do not use v.String() because we do not want to print the package path here.
+			doc = "var " + v.Name() + " " + v.Type().String()
 			return
 		}
 		query = v.Pkg().Path() + "." + v.Name()
@@ -584,15 +590,15 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 	}
 	if c, _ := obj.(*types.Const); c != nil {
 		if isLocal {
-			// Not implemented
-			doc = c.String()
+			doc = "const " + c.Name() + " " + c.Type().String()
 			return
 		}
 		query = c.Pkg().Path() + "." + c.Name()
 	}
 	if tyn, _ := obj.(*types.TypeName); tyn != nil {
 		if isLocal {
-			panic("not implemented")
+			// Not implemented
+			return
 		}
 		query = tyn.Pkg().Path() + "." + tyn.Name()
 		return
