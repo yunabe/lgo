@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestInspectRefs(t *testing.T) {
+func TestInspect(t *testing.T) {
 	tests := []struct {
 		name  string
 		src   string
@@ -87,13 +87,6 @@ func TestInspectRefs(t *testing.T) {
 			h.[cur]sayHello()`,
 			// TODO: Includes a receiver.
 			doc: "func sayHello(name string)",
-		},
-		{
-			name: "custom_type",
-			src: `
-			type message string
-			var m [cur]message`,
-			// TODO: Return a doc.
 		},
 		{
 			name: "custom_type_var",
@@ -210,7 +203,7 @@ func TestInspectRefs(t *testing.T) {
 			f := flag.Flag{[cur]Name: "myflag"}`,
 		},
 		{
-			name: "invalid type",
+			name: "invalid_type",
 			src: `
 			var x foobar
 			[cur]x + 10`,
@@ -242,6 +235,58 @@ func TestInspectRefs(t *testing.T) {
 				return s[cur]*x
 			}`,
 			doc: "var s int",
+		},
+		{
+			name: "typename_struct",
+			src: `
+			type mytype struct {
+				X int
+				Y string
+			}
+			v := [cur]mytype{}`,
+			doc: "type mytype struct{X int; Y string}",
+		},
+		{
+			name: "typename_interface",
+			src: `
+			type mytype interface {
+				Method(x int)
+			}
+			v := [cur]mytype(nil)`,
+			doc: "type mytype interface{Method(x int)}",
+		},
+		{
+			name: "typename_in_var",
+			src: `
+			type message string
+			var m [cur]message`,
+			doc: "type message string",
+		},
+		// def_ prefix tests test Inspect on identifiers that define objects.
+		{
+			name: "def_global_variable",
+			src:  `var [cur]x = 10`,
+			doc:  "var x int",
+		},
+		{
+			name: "def_func",
+			src: `
+			func [cur]myFunc(x int) (y int) { return x * 2 }
+			myFunc(10)`,
+			doc: "func myFunc(x int) (y int)",
+		},
+		{
+			name: "def_method",
+			src: `
+			type myType int
+			func (myType) [cur]myMethod() {}`,
+			// TODO: Print the receiver
+			doc: "func myMethod()",
+		},
+		{
+			name: "def_type",
+			src:  `type [cur]myType int`,
+			doc:  "type myType int",
 		},
 	}
 	for _, tt := range tests {

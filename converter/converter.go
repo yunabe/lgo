@@ -219,8 +219,19 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			if gen.Tok == token.VAR {
 				for _, spec := range gen.Specs {
 					spec := spec.(*ast.ValueSpec)
-					for _, name := range spec.Names {
-						if vspec := varSpecFromIdent(immg, pkg, name, checker); vspec != nil {
+					for i, name := range spec.Names {
+						if i == 0 && spec.Type != nil {
+							// Reuses spec.Type so that we can keep original nodes as far as possible.
+							// TODO: Reuse spec for all `i` if spec.Type != nil.
+							if isValidTypeObject(checker.Defs[name]) {
+								varSpecs = append(varSpecs, &ast.ValueSpec{
+									Names: []*ast.Ident{name},
+									Type:  spec.Type,
+								})
+							}
+							continue
+						}
+						if vspec := varSpecFromIdent(immg, pkg, name, checker, true); vspec != nil {
 							varSpecs = append(varSpecs, vspec)
 						}
 					}
@@ -250,7 +261,7 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			// Define vars.
 			for _, lhs := range assign.Lhs {
 				if ident, ok := lhs.(*ast.Ident); ok {
-					if vspec := varSpecFromIdent(immg, pkg, ident, checker); vspec != nil {
+					if vspec := varSpecFromIdent(immg, pkg, ident, checker, false); vspec != nil {
 						varSpecs = append(varSpecs, vspec)
 					}
 				}
@@ -375,12 +386,25 @@ func (m *importManager) shortName(pkg *types.Package) string {
 	return n
 }
 
-func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident, checker *types.Checker) *ast.ValueSpec {
+// Returns false if obj == nil or the type of obj is types.Invalid.
+func isValidTypeObject(obj types.Object) bool {
+	if obj == nil {
+		return false
+	}
+	if basic, ok := obj.Type().(*types.Basic); ok && basic.Kind() == types.Invalid {
+		return false
+	}
+	return true
+}
+
+// If reuseIdent is true, varSpecFromIdent reuses id in the return value. Otherwise, varSpecFromIdent uses a new Ident inside the return value.
+func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident, checker *types.Checker,
+	reuseIdent bool) *ast.ValueSpec {
 	obj := checker.Defs[ident]
 	if obj == nil {
 		return nil
 	}
-	if basic, ok := obj.Type().(*types.Basic); ok && basic.Kind() == types.Invalid {
+	if !isValidTypeObject(obj) {
 		// This check is important when convertToPhase2 is called from inspectObject.
 		return nil
 	}
@@ -391,8 +415,11 @@ func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident,
 	if err != nil {
 		panic(fmt.Sprintf("Failed to parse type expr %q: %v", typStr, err))
 	}
+	if !reuseIdent {
+		ident = &ast.Ident{Name: ident.Name}
+	}
 	return &ast.ValueSpec{
-		Names: []*ast.Ident{&ast.Ident{Name: ident.Name}},
+		Names: []*ast.Ident{ident},
 		Type:  typExr,
 	}
 }
@@ -465,21 +492,23 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 	}
 	phase1 := convertToPhase1(blk)
 
-	// TODO: Add a proper name to the package though it's not used at this moment.
-	pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
-	// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
-	for _, im := range conf.OldImports {
-		pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
-		vscope.Insert(pname)
-	}
-	var runctx types.Object
-	if vscope.Lookup("runctx") == nil {
-		ctxP, err := defaultImporter.Import("context")
-		if err != nil {
-			panic(fmt.Sprintf("Failed to import context: %v", err))
+	makePkg := func() (pkg *types.Package, runctx types.Object) {
+		// TODO: Add a proper name to the package though it's not used at this moment.
+		pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
+		// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
+		for _, im := range conf.OldImports {
+			pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
+			vscope.Insert(pname)
 		}
-		runctx = types.NewVar(token.NoPos, pkg, "runctx", ctxP.Scope().Lookup("Context").Type())
-		vscope.Insert(runctx)
+		if vscope.Lookup("runctx") == nil {
+			ctxP, err := defaultImporter.Import("context")
+			if err != nil {
+				panic(fmt.Sprintf("Failed to import context: %v", err))
+			}
+			runctx = types.NewVar(token.NoPos, pkg, "runctx", ctxP.Scope().Lookup("Context").Type())
+			vscope.Insert(runctx)
+		}
+		return pkg, runctx
 	}
 
 	// var errs []error
@@ -497,6 +526,7 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 		Scopes: make(map[ast.Node]*types.Scope),
 		Types:  make(map[ast.Expr]types.TypeAndValue),
 	}
+	pkg, runctx := makePkg()
 	checker := types.NewChecker(chConf, fset, pkg, &info)
 	checker.Files([]*ast.File{phase1.file})
 
@@ -516,9 +546,15 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 			Scopes: make(map[ast.Node]*types.Scope),
 			Types:  make(map[ast.Expr]types.TypeAndValue),
 		}
+		// Note: Do not reuse pkg above here because variables are already defined in the scope of pkg above.
+		pkg, _ := makePkg()
 		checker := types.NewChecker(chConf, fset, pkg, &info)
 		checker.Files([]*ast.File{phase1.file})
-		obj := checker.Uses[target]
+		var obj types.Object
+		obj = checker.Uses[target]
+		if obj == nil {
+			obj = checker.Defs[target]
+		}
 		if obj == nil {
 			return nil, false
 		}
@@ -597,7 +633,7 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 	}
 	if tyn, _ := obj.(*types.TypeName); tyn != nil {
 		if isLocal {
-			// Not implemented
+			doc = "type " + tyn.Name() + " " + tyn.Type().Underlying().String()
 			return
 		}
 		query = tyn.Pkg().Path() + "." + tyn.Name()
