@@ -143,6 +143,8 @@ func PrintError(w io.Writer, err error) {
 	}
 }
 
+const lgoExportPrefix = "LgoExport_"
+
 func (rn *LgoRunner) Run(ctx context.Context, src []byte) error {
 	rn.execCount++
 	sessDir := "github.com/yunabe/lgo/" + rn.sessID.Marshal()
@@ -158,8 +160,8 @@ func (rn *LgoRunner) Run(ctx context.Context, src []byte) error {
 	result := converter.Convert(string(src), &converter.Config{
 		Olds:         olds,
 		OldImports:   oldImports,
-		DefPrefix:    "LgoExport_",
-		RefPrefix:    "LgoExport_",
+		DefPrefix:    lgoExportPrefix,
+		RefPrefix:    lgoExportPrefix,
 		LgoPkgPath:   pkgPath,
 		AutoExitCode: true,
 		RegisterVars: true,
@@ -214,8 +216,8 @@ func (rn *LgoRunner) Inspect(ctx context.Context, src string, index int) (string
 	doc, query := converter.InspectIdent(src, token.Pos(index+1), &converter.Config{
 		Olds:       olds,
 		OldImports: oldImports,
-		DefPrefix:  "LgoExport_",
-		RefPrefix:  "LgoExport_",
+		DefPrefix:  lgoExportPrefix,
+		RefPrefix:  lgoExportPrefix,
 	})
 	if doc != "" {
 		return doc, nil
@@ -229,7 +231,7 @@ func (rn *LgoRunner) Inspect(ctx context.Context, src string, index int) (string
 	if err := cmd.Run(); err != nil {
 		return "", err
 	}
-	return buf.String(), nil
+	return strings.Replace(buf.String(), lgoExportPrefix, "", -1), nil
 }
 
 func (rn *LgoRunner) CleanUp() error {

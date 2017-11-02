@@ -469,12 +469,29 @@ func (v *findIdentVisitor) Visit(node ast.Node) ast.Visitor {
 	return v
 }
 
+// InspectIdent shows a document or a query for go doc command for the identifier at pos.
 func InspectIdent(src string, pos token.Pos, conf *Config) (doc, query string) {
 	obj, local := inspectObject(src, pos, conf)
 	if obj == nil {
 		return
 	}
-	return getDocOrGoDocQuery(obj, local)
+	doc, q := getDocOrGoDocQuery(obj, local)
+	if doc != "" || q == nil {
+		return
+	}
+	if obj.Pkg().IsLgo {
+		// rename unexported identifiers.
+		for i, id := range q.ids {
+			if len(id) == 0 {
+				continue
+			}
+			if c := id[0]; c < 'A' || 'Z' < c {
+				q.ids[i] = conf.DefPrefix + id
+			}
+		}
+	}
+	query = q.pkg + "." + strings.Join(q.ids, ".")
+	return
 }
 
 func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, isLocal bool) {
@@ -533,9 +550,11 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 	convertToPhase2(phase1, pkg, checker, conf, runctx)
 	{
 		chConf := &types.Config{
-			Importer: defaultImporter,
+			Importer: newImporterWithOlds(conf.Olds),
 			Error: func(err error) {
-				//	errs = append(errs, err)
+				// Ignore errors.
+				// It is necessary to set this noop func because checker stops analyzing code
+				// when the first error is found if Error is nil.
 			},
 			IgnoreFuncBodies:  false,
 			DontIgnoreLgoInit: true,
@@ -562,11 +581,16 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 	}
 }
 
+type goDocQuery struct {
+	pkg string
+	ids []string
+}
+
 // getDocOrGoDocQuery returns a doc string for obj or a query to retrieve a document with go doc (An argument of go doc command).
 // getDocOrGoDocQuery returns ("", "") if we do not show anything for obj.
-func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query string) {
+func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDocQuery) {
 	if pkg, _ := obj.(*types.PkgName); pkg != nil {
-		query = pkg.Imported().Path()
+		query = &goDocQuery{pkg.Imported().Path(), nil}
 		return
 	}
 	if fn, _ := obj.(*types.Func); fn != nil {
@@ -581,7 +605,7 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 		sig := fn.Type().(*types.Signature)
 		recv := sig.Recv()
 		if recv == nil {
-			query = fn.Pkg().Path() + "." + fn.Name()
+			query = &goDocQuery{fn.Pkg().Path(), []string{fn.Name()}}
 			return
 		}
 		recv.Name()
@@ -607,7 +631,7 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 			panic(fmt.Errorf("Unexpected receiver type: %#v", recv))
 		}
 		if recvName != "" {
-			query = fn.Pkg().Path() + "." + recvName + "." + fn.Name()
+			query = &goDocQuery{fn.Pkg().Path(), []string{recvName, fn.Name()}}
 		}
 		return
 	}
@@ -621,7 +645,7 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 			doc = "var " + v.Name() + " " + v.Type().String()
 			return
 		}
-		query = v.Pkg().Path() + "." + v.Name()
+		query = &goDocQuery{v.Pkg().Path(), []string{v.Name()}}
 		return
 	}
 	if c, _ := obj.(*types.Const); c != nil {
@@ -629,14 +653,14 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query strin
 			doc = "const " + c.Name() + " " + c.Type().String()
 			return
 		}
-		query = c.Pkg().Path() + "." + c.Name()
+		query = &goDocQuery{c.Pkg().Path(), []string{c.Name()}}
 	}
 	if tyn, _ := obj.(*types.TypeName); tyn != nil {
 		if isLocal {
 			doc = "type " + tyn.Name() + " " + tyn.Type().Underlying().String()
 			return
 		}
-		query = tyn.Pkg().Path() + "." + tyn.Name()
+		query = &goDocQuery{tyn.Pkg().Path(), []string{tyn.Name()}}
 		return
 	}
 	return

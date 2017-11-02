@@ -2,6 +2,7 @@ package converter
 
 import (
 	"go/token"
+	"go/types"
 	"strings"
 	"testing"
 )
@@ -300,12 +301,52 @@ func TestInspect(t *testing.T) {
 
 			obj, local := inspectObject(strings.Replace(src, "[cur]", "", -1), pos, &Config{})
 			doc, query := getDocOrGoDocQuery(obj, local)
+			var queryStr string
+			if query != nil {
+				queryStr = query.pkg
+				if len(query.ids) > 0 {
+					queryStr += "." + strings.Join(query.ids, ".")
+				}
+			}
 			if tt.doc != doc {
 				t.Errorf("Expected %q but got %q", tt.doc, doc)
 			}
-			if tt.query != query {
+			if tt.query != queryStr {
 				t.Errorf("Expected %q but got %q", tt.query, query)
 			}
 		})
+	}
+}
+
+func TestInspectWithOlds(t *testing.T) {
+	result := Convert(`
+	x := 10
+	X := x + 10
+	`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	olds := []types.Object{result.Pkg.Scope().Lookup("x"),
+		result.Pkg.Scope().Lookup("X"),
+	}
+	tests := []struct{ id, query string }{
+		{"x", "lgo/pkg0.Def_x"},
+		{"X", "lgo/pkg0.X"},
+	}
+	for _, tt := range tests {
+		src := `y := x + X`
+		doc, query := InspectIdent(src, token.Pos(strings.Index(src, tt.id)+1), &Config{
+			Olds:      olds,
+			DefPrefix: "Def_",
+			// RefPrefix is not used.
+			RefPrefix: "Ref_",
+		})
+		if doc != "" {
+			t.Errorf("Expected an empty doc for %s but got %q", tt.id, doc)
+		}
+		if query != tt.query {
+			t.Errorf("Expected %q for %s but got %q", tt.query, tt.id, query)
+		}
 	}
 }
