@@ -22,8 +22,16 @@ type MyInterface interface {
 func lgo_init() {
 	pkg0.LgoRegisterVar("x", &x)
 	pkg0.LgoRegisterVar("y", &y)
+	pkg0.LgoRegisterVar("alice", &alice)
+	pkg0.LgoRegisterVar("bob", &bob)
+	pkg0.LgoRegisterVar("i", &i)
+	pkg0.LgoRegisterVar("j", &j)
 	x = 10
 	y = "hello"
+	alice = &MyType{"Alice", 12}
+	bob = &MyType{"Bob", 45}
+	i = alice
+	j = bob
 }
 
 const (
@@ -32,6 +40,10 @@ const (
 )
 
 var (
-	x int
-	y string
+	x     int
+	y     string
+	alice *MyType
+	bob   *MyType
+	i     interface{}
+	j     interface{}
 )

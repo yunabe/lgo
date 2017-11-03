@@ -716,6 +716,14 @@ func TestConvert_comments(t *testing.T) {
 		// d is also constant
 		d = 123
 	)
+
+    // alice is Alice
+	alice := &MyType{"Alice", 12}
+	bob := &MyType{"Bob", 45}  // bob is Bob
+
+	// i is interface
+	var i interface{} = alice
+	var j interface{} = bob // j is also interface
 	`, &Config{LgoPkgPath: "lgo/pkg0", RegisterVars: true})
 	if result.Err != nil {
 		t.Error(result.Err)
