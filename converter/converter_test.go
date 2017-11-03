@@ -679,20 +679,42 @@ func TestConvert_wrapGoStmt(t *testing.T) {
 func TestConvert_comments(t *testing.T) {
 	// TODO: Keep document comments.
 	result := Convert(`
+	// Top-level comment
+	// continue
+
+	// dangling comments 
+
 	// fn does nothing
-	func fn() {}
+	func fn() {
+		// Do nothing
+	}
 
 	// MyType represents something
 	type MyType struct {
-		Name string
-		Age int
+		Name string  // name
+		Age int // age
+	}
+
+	// Hello returns a hello message
+	func (m *MyType) Hello() string {
+		return "Hello " + m.Name
+	}
+
+	type MyInterface interface {
+		// DoSomething does something
+		DoSomething(x int) float32
+		Hello() string // Say hello
 	}
 
 	var (
 		x int = 10  // Something
+		// y is string
+		y = "hello"
 	)
 	const (
 		c = "constant"  // This is constant
+		// d is also constant
+		d = 123
 	)
 	`, &Config{LgoPkgPath: "lgo/pkg0", RegisterVars: true})
 	if result.Err != nil {
