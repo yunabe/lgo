@@ -1,7 +1,6 @@
 package lgo_exec
 
-func f() {
-}
+func f() {}
 func lgo_init() {
 	f()
 }

@@ -5,11 +5,13 @@ import pkg2 "io"
 import pkg1 "io/ioutil"
 
 func lgo_init() {
-	r = pkg0.NewReader(nil)
+	r = pkg0.
+		NewReader(nil)
 	c = pkg1.NopCloser(r)
 }
 
 var (
 	r *pkg0.Reader
-	c pkg2.ReadCloser
+	c pkg2.
+		ReadCloser
 )

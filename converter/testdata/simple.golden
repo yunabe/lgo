@@ -12,11 +12,14 @@ func fact(n int64) int64 {
 	return 1
 }
 
-type myStruct struct{ value int }
+type myStruct struct {
+	value int
+}
 
 func (m *myStruct) hello(name string) string {
 	return fmt.Sprintf("Hello %s!", name)
 }
+
 func returnInterface() interface {
 	method(int) float32
 } {
@@ -26,7 +29,9 @@ func lgo_init() {
 	sp = &myStruct{}
 	msg0 = sv.hello("World0")
 	msg1 = sp.hello("World1")
+
 	inter = returnInterface()
+
 	f = fact(10)
 	pi, pi2 = 3.14, 6.28
 }
@@ -44,8 +49,10 @@ var (
 	inter interface {
 		method(int) float32
 	}
-	f      int64
-	pi     float32
-	pi2    float32
+	f int64
+
+	pi  float32
+	pi2 float32
+
 	reader renamedio.Reader
 )

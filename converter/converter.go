@@ -964,7 +964,8 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 		}
 	}
 	var buf bytes.Buffer
-	err := format.Node(&buf, token.NewFileSet(), file)
+	// Note: fset is used to keep blank lines and white spaces in the orignal source as far as possible.
+	err := format.Node(&buf, fset, file)
 	if err != nil {
 		return nil, nil, nil, err
 	}

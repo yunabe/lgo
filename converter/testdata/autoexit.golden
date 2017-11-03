@@ -7,6 +7,7 @@ func light(x int) int {
 	y := x * x
 	return y
 }
+
 func fcall(x int) int {
 	pkg0.ExitIfCtxDone()
 	x = light(x)
@@ -17,12 +18,14 @@ func fcall(x int) int {
 	pkg0.ExitIfCtxDone()
 	return light(x)
 }
+
 func ifstmt() {
 	pkg0.ExitIfCtxDone()
 	x := light(2)
 	if x > 10 {
 	}
 	pkg0.ExitIfCtxDone()
+
 	x = light(3)
 	pkg0.ExitIfCtxDone()
 	x += light(4)
@@ -30,11 +33,13 @@ func ifstmt() {
 	if y := light(10); x-y < 0 {
 	}
 	pkg0.ExitIfCtxDone()
+
 	x = light(4)
 	pkg0.ExitIfCtxDone()
 	if x < light(10) {
 	}
 }
+
 func forstmt() {
 	pkg0.ExitIfCtxDone()
 	x := light(1)
@@ -50,6 +55,7 @@ func forstmt() {
 		y += i
 	}
 }
+
 func switchstmt() int {
 	pkg0.ExitIfCtxDone()
 	x := light(2)
@@ -58,6 +64,7 @@ func switchstmt() int {
 		x = 10
 	}
 	pkg0.ExitIfCtxDone()
+
 	x = light(3)
 	pkg0.ExitIfCtxDone()
 	switch x {
@@ -65,6 +72,7 @@ func switchstmt() int {
 		x = 10
 	}
 	pkg0.ExitIfCtxDone()
+
 	switch x := light(10); x {
 	case 10:
 		pkg0.ExitIfCtxDone()
@@ -79,6 +87,7 @@ func switchstmt() int {
 	}
 	return x
 }
+
 func deferstmt() int {
 	pkg0.ExitIfCtxDone()
 	x := light(2)
@@ -103,6 +112,7 @@ func deferstmt() int {
 }
 func lgo_init() {
 	pkg0.ExitIfCtxDone()
+
 	for i := 0; i < 100; i++ {
 		pkg0.ExitIfCtxDone()
 	}

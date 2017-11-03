@@ -4,9 +4,7 @@ import pkg0 "github.com/yunabe/lgo/core"
 
 func lgo_init() {
 	pkg0.LgoRegisterVar("f", &f)
-	f = func(x, y int) int {
-		return x + y
-	}
+	f = func(x, y int) int { return x + y }
 	{
 		ectx0 := pkg0.InitGoroutine()
 		go func() {
