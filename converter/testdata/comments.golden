@@ -1,0 +1,24 @@
+package lgo_exec
+
+import pkg0 "github.com/yunabe/lgo/core"
+
+func fn() {
+}
+
+type MyType struct {
+	Name string
+	Age  int
+}
+
+func lgo_init() {
+	pkg0.LgoRegisterVar("x", &x)
+	x = 10
+}
+
+const (
+	c = "constant"
+)
+
+var (
+	x int
+)

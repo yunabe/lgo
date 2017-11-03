@@ -675,6 +675,33 @@ func TestConvert_wrapGoStmt(t *testing.T) {
 	checkGolden(t, result.Src, "testdata/wrap_gostmt.golden")
 }
 
+// Demostrates how converter keeps comments.
+func TestConvert_comments(t *testing.T) {
+	// TODO: Keep document comments.
+	result := Convert(`
+	// fn does nothing
+	func fn() {}
+
+	// MyType represents something
+	type MyType struct {
+		Name string
+		Age int
+	}
+
+	var (
+		x int = 10  // Something
+	)
+	const (
+		c = "constant"  // This is constant
+	)
+	`, &Config{LgoPkgPath: "lgo/pkg0", RegisterVars: true})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments.golden")
+}
+
 func Test_prependPrefixToID(t *testing.T) {
 	prefix := "Ref_"
 	tests := []struct {
