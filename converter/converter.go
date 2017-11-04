@@ -16,6 +16,7 @@ import (
 )
 
 const lgoInitFuncName = "lgo_init"
+const lgoPackageName = "lgo_exec" // TODO: Set a proper name.
 
 var defaultImporter = importer.Default()
 
@@ -56,7 +57,7 @@ func uniqueSortedNames(ids []*ast.Ident) []string {
 
 func parseLesserGoString(src string) (*token.FileSet, *parser.LGOBlock, error) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseLesserGoFile(fset, "", []byte(src), 0)
+	f, err := parser.ParseLesserGoFile(fset, "", []byte(src), parser.ParseComments)
 	return fset, f, err
 }
 
@@ -147,9 +148,8 @@ func convertToPhase1(blk *parser.LGOBlock) (out phase1Out) {
 	}
 	decls = append(decls, out.initFunc)
 	out.file = &ast.File{
-		Doc:        blk.Doc,
 		Package:    token.NoPos,
-		Name:       ast.NewIdent("lgo_exec"), // Set a proper name.
+		Name:       ast.NewIdent(lgoPackageName),
 		Decls:      decls,
 		Scope:      blk.Scope,
 		Imports:    blk.Imports,
@@ -671,6 +671,11 @@ func Convert(src string, conf *Config) *ConvertResult {
 	if err != nil {
 		return &ConvertResult{Err: err}
 	}
+	if blk.LeadingComments != nil && len(blk.LeadingComments.List) > 0 {
+		// A hack to print package statement and the leading comment separately.
+		// See the result of TestConvert_commentFirstLine.
+		blk.LeadingComments.List[0].Slash = token.NoPos
+	}
 	phase1 := convertToPhase1(blk)
 
 	// TODO: Add a proper name to the package though it's not used at this moment.
@@ -964,6 +969,8 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 		}
 	}
 	var buf bytes.Buffer
+	// Set nil to Comments so that go/printer only prints comments under Doc field of nodes.
+	file.Comments = nil
 	// Note: fset is used to keep blank lines and white spaces in the orignal source as far as possible.
 	err := format.Node(&buf, fset, file)
 	if err != nil {

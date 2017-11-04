@@ -1,0 +1,9 @@
+package lgo_exec
+
+import pkg0 "github.com/yunabe/lgo/core"
+// fn does nothing
+func fn() {
+}
+func lgo_init() {
+	pkg0.LgoPrintln(<-pkg0.GetExecContext().Done())
+}

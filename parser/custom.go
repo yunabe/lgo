@@ -6,7 +6,7 @@ import (
 )
 
 type LGOBlock struct {
-	Doc *ast.CommentGroup // associated documentation; or nil
+	LeadingComments *ast.CommentGroup
 	// Package    token.Pos           // position of "package" keyword
 	// Name       *ast.Ident          // package name
 	// Decls      []ast.Decl          // top-level declarations; or nil
@@ -65,7 +65,7 @@ func (p *parser) parseLesserGoSrc() *LGOBlock {
 	}
 
 	return &LGOBlock{
-		Doc: doc,
+		LeadingComments: doc,
 		// Package:    pos,
 		// Name:       ident,
 		// Decls:      decls,

@@ -1,0 +1,3 @@
+package lgo_exec
+
+const x int = 123 // x is x

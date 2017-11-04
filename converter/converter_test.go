@@ -677,13 +677,11 @@ func TestConvert_wrapGoStmt(t *testing.T) {
 
 // Demostrates how converter keeps comments.
 func TestConvert_comments(t *testing.T) {
-	// TODO: Keep document comments.
-	result := Convert(`
-	// Top-level comment
-	// continue
+	result := Convert(`// Top-level comment
+	// The second line of the top-level comment
 
 	// dangling comments 
-
+	
 	// fn does nothing
 	func fn() {
 		// Do nothing
@@ -724,12 +722,69 @@ func TestConvert_comments(t *testing.T) {
 	// i is interface
 	var i interface{} = alice
 	var j interface{} = bob // j is also interface
-	`, &Config{LgoPkgPath: "lgo/pkg0", RegisterVars: true})
+	`, &Config{LgoPkgPath: "lgo/pkg0"})
 	if result.Err != nil {
 		t.Error(result.Err)
 		return
 	}
 	checkGolden(t, result.Src, "testdata/comments.golden")
+}
+
+func TestConvert_commentFirstLine(t *testing.T) {
+	result := Convert(`// fn does nothing
+	func fn() {
+		// Do nothing
+	}`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments_firstline.golden")
+}
+
+func TestConvert_commentFirstLineWithCore(t *testing.T) {
+	result := Convert(`// fn does nothing
+	func fn() {
+	}
+	<-runctx.Done()
+	`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments_firstline__withcore.golden")
+}
+
+func TestConvert_commentFirstLineSlashAsterisk(t *testing.T) {
+	result := Convert(`/* fn does nothing */
+	func fn() {
+		// Do nothing
+	}`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	// TODO: Fix this case
+	checkGolden(t, result.Src, "testdata/comments_firstline_slashasterisk.golden")
+}
+
+func TestConvert_commentFirstTrailing(t *testing.T) {
+	result := Convert(`const x = 10 // x is const int
+		`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments_firstline_trailing.golden")
+}
+
+func TestConvert_commentLastLine(t *testing.T) {
+	result := Convert(`const x int = 123 // x is x`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments_lastline.golden")
 }
 
 func Test_prependPrefixToID(t *testing.T) {
