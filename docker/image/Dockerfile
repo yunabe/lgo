@@ -1,4 +1,4 @@
-FROM golang:1.9.1
+FROM golang:1.9.2
 
 RUN apt-get update && apt-get install -y libczmq-dev python-pip && rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade pip && pip install -U jupyter
