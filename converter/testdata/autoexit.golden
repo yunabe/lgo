@@ -1,13 +1,11 @@
 package lgo_exec
 
 import pkg0 "github.com/yunabe/lgo/core"
-
 func light(x int) int {
 	pkg0.ExitIfCtxDone()
 	y := x * x
 	return y
 }
-
 func fcall(x int) int {
 	pkg0.ExitIfCtxDone()
 	x = light(x)
@@ -18,7 +16,6 @@ func fcall(x int) int {
 	pkg0.ExitIfCtxDone()
 	return light(x)
 }
-
 func ifstmt() {
 	pkg0.ExitIfCtxDone()
 	x := light(2)
@@ -39,7 +36,6 @@ func ifstmt() {
 	if x < light(10) {
 	}
 }
-
 func forstmt() {
 	pkg0.ExitIfCtxDone()
 	x := light(1)
@@ -55,7 +51,6 @@ func forstmt() {
 		y += i
 	}
 }
-
 func switchstmt() int {
 	pkg0.ExitIfCtxDone()
 	x := light(2)
@@ -87,7 +82,6 @@ func switchstmt() int {
 	}
 	return x
 }
-
 func deferstmt() int {
 	pkg0.ExitIfCtxDone()
 	x := light(2)

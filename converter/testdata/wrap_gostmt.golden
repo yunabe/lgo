@@ -1,7 +1,6 @@
 package lgo_exec
 
 import pkg0 "github.com/yunabe/lgo/core"
-
 func lgo_init() {
 	pkg0.LgoRegisterVar("f", &f)
 	f = func(x, y int) int { return x + y }
@@ -21,7 +20,6 @@ func lgo_init() {
 		}()
 	}
 }
-
 var (
 	f func(x int, y int) int
 )

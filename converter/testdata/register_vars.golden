@@ -1,7 +1,6 @@
 package lgo_exec
 
 import pkg0 "github.com/yunabe/lgo/core"
-
 func f(n int) int { return n * n }
 func lgo_init() {
 	pkg0.LgoRegisterVar("a", &a)
@@ -10,7 +9,6 @@ func lgo_init() {
 	a = 10
 	b = 3.4
 }
-
 var (
 	a int
 	b float64

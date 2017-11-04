@@ -6,10 +6,6 @@ import (
 )
 
 type LGOBlock struct {
-	LeadingComments *ast.CommentGroup
-	// Package    token.Pos           // position of "package" keyword
-	// Name       *ast.Ident          // package name
-	// Decls      []ast.Decl          // top-level declarations; or nil
 	Scope      *ast.Scope          // package scope (this file only)
 	Imports    []*ast.ImportSpec   // imports in this file
 	Unresolved []*ast.Ident        // unresolved identifiers in this file
@@ -41,9 +37,6 @@ func (p *parser) parseLesserGoSrc() *LGOBlock {
 		return nil
 	}
 
-	// package clause
-	doc := p.leadComment
-
 	p.openScope()
 	p.pkgScope = p.topScope
 	// rest of package body
@@ -65,7 +58,6 @@ func (p *parser) parseLesserGoSrc() *LGOBlock {
 	}
 
 	return &LGOBlock{
-		LeadingComments: doc,
 		// Package:    pos,
 		// Name:       ident,
 		// Decls:      decls,

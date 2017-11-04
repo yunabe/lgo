@@ -671,11 +671,6 @@ func Convert(src string, conf *Config) *ConvertResult {
 	if err != nil {
 		return &ConvertResult{Err: err}
 	}
-	if blk.LeadingComments != nil && len(blk.LeadingComments.List) > 0 {
-		// A hack to print package statement and the leading comment separately.
-		// See the result of TestConvert_commentFirstLine.
-		blk.LeadingComments.List[0].Slash = token.NoPos
-	}
 	phase1 := convertToPhase1(blk)
 
 	// TODO: Add a proper name to the package though it's not used at this moment.
@@ -968,15 +963,11 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 			prependPrefixToID(ident, conf.RefPrefix)
 		}
 	}
-	var buf bytes.Buffer
-	// Set nil to Comments so that go/printer only prints comments under Doc field of nodes.
-	file.Comments = nil
-	// Note: fset is used to keep blank lines and white spaces in the orignal source as far as possible.
-	err := format.Node(&buf, fset, file)
+	finalSrc, err := printFinalResult(file, fset)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return buf.Bytes(), pkg, checker, nil
+	return finalSrc, pkg, checker, nil
 }
 
 func capturePanicInGoRoutine(file *ast.File, immg *importManager, defs map[*ast.Ident]types.Object) {
@@ -1045,4 +1036,42 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 	}
 	// Do not visit this node again.
 	return nil
+}
+
+// printFinalResult converts the lgo final *ast.File into Go code. This function is almost identical to go/format.Node.
+// This custom function is necessary to handle comments in the first line properly.
+// See the results of "TestConvert_comment.* tests.
+func printFinalResult(file *ast.File, fset *token.FileSet) ([]byte, error) {
+	// c.f. func (p *printer) file(src *ast.File) in https://golang.org/src/go/printer/nodes.go
+	var buf bytes.Buffer
+	var err error
+	w := func(s string) {
+		if err == nil {
+			_, err = buf.WriteString(s)
+		}
+	}
+	newLine := func() {
+		if err != nil {
+			return
+		}
+		if b := buf.Bytes(); b[len(b)-1] != '\n' {
+			w("\n")
+		}
+	}
+	w("package ")
+	w(file.Name.Name)
+	w("\n\n")
+	for _, decl := range file.Decls {
+		if err == nil {
+			err = format.Node(&buf, fset, decl)
+			newLine()
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if b := buf.Bytes(); b[len(b)-1] != '\n' {
+		w("\n")
+	}
+	return buf.Bytes(), nil
 }

@@ -1,12 +1,10 @@
 package lgo_exec
 
 import pkg0 "github.com/yunabe/lgo/core"
-
 func lgo_init() {
 	x = 10
 	pkg0.LgoPrintln(x * x)
 }
-
 var (
 	x int
 )

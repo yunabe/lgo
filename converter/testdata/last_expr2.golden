@@ -1,7 +1,6 @@
 package lgo_exec
 
 import pkg0 "github.com/yunabe/lgo/core"
-
 func f() (int, float32) {
 	return 10, 2.1
 }

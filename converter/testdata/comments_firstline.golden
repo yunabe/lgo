@@ -1,4 +1,5 @@
 package lgo_exec
+
 // fn does nothing
 func fn() {
 

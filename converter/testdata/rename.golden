@@ -7,20 +7,16 @@ func Fn(n int) int {
 	b := func() int { return 10 }
 	return b()
 }
-
 type Def_st struct {
 	Def_value int
 }
-
 func (s *Ref_st) Def_getValue() float32 {
 	return float32(s.Ref_value)
 }
-
 type Def_myInter interface {
 	Method0()
 	Def_method()
 }
-
 func Def_getInter() interface {
 	Def_method()
 } {
@@ -36,7 +32,6 @@ func lgo_init() {
 		Ref_value: 34,
 	}
 }
-
 var (
 	Def_v int
 	Def_s Ref_st
