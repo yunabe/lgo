@@ -39,6 +39,8 @@ func newContentForMsgType(header *messageHeader) interface{} {
 	switch header.MsgType {
 	case "execute_request":
 		return &ExecuteRequest{}
+	case "complete_request":
+		return &CompleteRequest{}
 	case "inspect_request":
 		return &InspectRequest{}
 	}

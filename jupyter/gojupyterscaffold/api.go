@@ -8,6 +8,7 @@ type RequestHandlers interface {
 		req *ExecuteRequest,
 		writeStream func(name, text string),
 		writeDisplayData func(data *DisplayData)) *ExecuteResult
+	HandleComplete(req *CompleteRequest) *CompleteReply
 	HandleInspect(req *InspectRequest) *InspectReply
 }
 
@@ -53,6 +54,34 @@ type InspectReply struct {
 	Found bool `json:"found"`
 	// data can be empty if nothing is found
 	Data map[string]interface{} `json:"data,omitempty"`
+}
+
+// http://jupyter-client.readthedocs.io/en/latest/messaging.html#completion
+type CompleteRequest struct {
+	// The code context in which completion is requested
+	// this may be up to an entire multiline cell, such as
+	// 'foo = a.isal'
+	Code string `json:"code"`
+	// The cursor position within 'code' (in unicode characters) where completion is requested
+	CursorPos int `json:"cursor_pos"`
+}
+
+type CompleteReply struct {
+	// The list of all matches to the completion request, such as
+	// ['a.isalnum', 'a.isalpha'] for the above example.
+	Matches []string `json:"matches"`
+
+	// The range of text that should be replaced by the above matches when a completion is accepted.
+	// typically cursor_end is the same as cursor_pos in the request.
+	CursorStart int `json:"cursor_start"`
+	CursorEnd   int `json:"cursor_end"`
+
+	// 'metadata' is omitted
+
+	// status should be 'ok' unless an exception was raised during the request,
+	// in which case it should be 'error', along with the usual error message content
+	// in other messages.
+	Status string `json:"status"`
 }
 
 // http://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results

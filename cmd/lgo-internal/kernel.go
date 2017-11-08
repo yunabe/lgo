@@ -118,6 +118,11 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 	}
 }
 
+func (*handlers) HandleComplete(req *scaffold.CompleteRequest) *scaffold.CompleteReply {
+	// Not implemented
+	return nil
+}
+
 func (h *handlers) HandleInspect(r *scaffold.InspectRequest) *scaffold.InspectReply {
 	index := -1
 	count := 0

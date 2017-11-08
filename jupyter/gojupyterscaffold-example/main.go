@@ -64,6 +64,15 @@ loop:
 	return res
 }
 
+func (*handlers) HandleComplete(req *scaffold.CompleteRequest) *scaffold.CompleteReply {
+	return &scaffold.CompleteReply{
+		Status:      "ok",
+		Matches:     []string{"abc", "xyz", "123", "こんにちは"},
+		CursorStart: req.CursorPos,
+		CursorEnd:   req.CursorPos,
+	}
+}
+
 func (*handlers) HandleInspect(req *scaffold.InspectRequest) *scaffold.InspectReply {
 	return &scaffold.InspectReply{
 		Status: "ok",
