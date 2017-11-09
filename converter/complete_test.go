@@ -188,6 +188,33 @@ func Test_isPosInFuncBody(t *testing.T) {
 }
 
 func TestComplete(t *testing.T) {
+	const selectorSpecExample = `
+type T0 struct {
+	x int
+}
+
+func (*T0) M0()
+
+type T1 struct {
+	y int
+}
+
+func (T1) M1()
+
+type T2 struct {
+	z int
+	T1
+	*T0
+}
+
+func (*T2) M2()
+
+type Q *T2
+
+var t T2     // with t.T0 != nil
+var p *T2    // with p != nil and (*p).T0 != nil
+var q Q = p
+`
 	tests := []struct {
 		name string
 		src  string
@@ -227,17 +254,37 @@ func TestComplete(t *testing.T) {
 			)
 			var buf *bytes.Buffer
 			buf.un[cur]`,
-			want: nil,
+			want: []string{"UnreadByte", "UnreadRune"},
+		}, {
+			name: "selector_example1",
+			src: `
+			[selector_example]
+			t.[cur]`,
+			want: []string{"M0", "M1", "M2", "T0", "T1", "x", "y", "z"},
+		}, {
+			name: "selector_example2",
+			src: `
+			[selector_example]
+			p.[cur]`,
+			want: []string{"M0", "M1", "M2", "T0", "T1", "x", "y", "z"},
+		}, {
+			name: "selector_example3",
+			src: `
+			[selector_example]
+			q.[cur]`,
+			want: []string{"T0", "T1", "x", "y", "z"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pos := token.Pos(strings.Index(tt.src, "[cur]") + 1)
+			src := tt.src
+			src = strings.Replace(src, "[selector_example]", selectorSpecExample, -1)
+			pos := token.Pos(strings.Index(src, "[cur]") + 1)
 			if pos <= 0 {
 				t.Error("[cur] not found")
 				return
 			}
-			got, _, _ := Complete([]byte(strings.Replace(tt.src, "[cur]", "", -1)), pos, &Config{})
+			got, _, _ := Complete([]byte(strings.Replace(src, "[cur]", "", -1)), pos, &Config{})
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected %#v but got %#v", tt.want, got)
 			}

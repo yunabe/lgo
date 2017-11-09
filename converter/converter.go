@@ -512,6 +512,7 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 	makePkg := func() (pkg *types.Package, runctx types.Object) {
 		// TODO: Add a proper name to the package though it's not used at this moment.
 		pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
+		pkg.IsLgo = true
 		// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
 		for _, im := range conf.OldImports {
 			pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
@@ -675,6 +676,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 
 	// TODO: Add a proper name to the package though it's not used at this moment.
 	pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
+	pkg.IsLgo = true
 	// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
 	for _, im := range conf.OldImports {
 		pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())

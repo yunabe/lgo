@@ -169,6 +169,7 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 	makePkg := func() (pkg *types.Package, runctx types.Object) {
 		// TODO: Add a proper name to the package though it's not used at this moment.
 		pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
+		pkg.IsLgo = true
 		// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
 		for _, im := range conf.OldImports {
 			pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
@@ -234,6 +235,96 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 	}
 }
 
+// scanFieldOrMethod scans all possible fields and methods of typ.
+// c.f. LookupFieldOrMethod of go/types.
+func scanFieldOrMethod(typ types.Type, add func(string)) {
+	// deref dereferences typ if it is a *Pointer and returns its base and true.
+	// Otherwise it returns (typ, false).
+	deref := func(typ types.Type) (types.Type, bool) {
+		if p, _ := typ.(*types.Pointer); p != nil {
+			return p.Elem(), true
+		}
+		return typ, false
+	}
+
+	var ignoreMethod bool
+	if named, _ := typ.(*types.Named); named != nil {
+		// https://golang.org/ref/spec#Selectors
+		// As an exception, if the type of x is a named pointer type and (*x).f is a valid selector expression
+		// denoting a field (but not a method), x.f is shorthand for (*x).f.
+		if p, _ := named.Underlying().(*types.Pointer); p != nil {
+			typ = p
+			ignoreMethod = true
+		}
+	}
+	typ, isPtr := deref(typ)
+	if isPtr && types.IsInterface(typ) {
+		return
+	}
+	type embeddedType struct {
+		typ types.Type
+	}
+	current := []embeddedType{{typ}}
+	var seen map[*types.Named]bool
+
+	// search current depth
+	for len(current) > 0 {
+		var next []embeddedType // embedded types found at current depth
+
+		for _, e := range current {
+			typ := e.typ
+
+			// If we have a named type, we may have associated methods.
+			// Look for those first.
+			if named, _ := typ.(*types.Named); named != nil {
+				if seen[named] {
+					// We have seen this type before.
+					continue
+				}
+				if seen == nil {
+					seen = make(map[*types.Named]bool)
+				}
+				seen[named] = true
+
+				if !ignoreMethod {
+					// scan methods
+					for i := 0; i < named.NumMethods(); i++ {
+						f := named.Method(i)
+						if f.Exported() {
+							add(f.Name())
+						}
+					}
+				}
+				// continue with underlying type
+				typ = named.Underlying()
+			}
+
+			switch t := typ.(type) {
+			case *types.Struct:
+				for i := 0; i < t.NumFields(); i++ {
+					f := t.Field(i)
+					if f.Exported() {
+						add(f.Name())
+					}
+					if f.Anonymous() {
+						typ, _ := deref(f.Type())
+						next = append(next, embeddedType{typ})
+					}
+				}
+
+			case *types.Interface:
+				// scan methods
+				for i := 0; i < t.NumMethods(); i++ {
+					if m := t.Method(i); m.Exported() {
+						add(m.Name())
+					}
+				}
+			}
+		}
+		current = next
+	}
+}
+
 func completeSelectExpr(checker *types.Checker, sel *ast.SelectorExpr, orig string) []string {
 	suggests := make(map[string]bool)
 	add := func(s string) {
@@ -262,26 +353,9 @@ func completeSelectExpr(checker *types.Checker, sel *ast.SelectorExpr, orig stri
 			}
 		}
 	}()
-	func() {
-		// Complete x.sel[cur] case.
-		// TODO: Support more cases (cf. https://golang.org/ref/spec#Selectors)
-		tv, ok := checker.Types[sel.X]
-		if !ok {
-			return
-		}
-		if !tv.IsValue() {
-			return
-		}
-		ty, ok := tv.Type.(*types.Named)
-		if !ok {
-			return
-		}
-		for i := 0; i < ty.NumMethods(); i++ {
-			if m := ty.Method(i); m.Exported() {
-				add(m.Name())
-			}
-		}
-	}()
+	if tv, ok := checker.Types[sel.X]; ok && tv.IsValue() {
+		scanFieldOrMethod(tv.Type, add)
+	}
 	if len(suggests) == 0 {
 		return nil
 	}
