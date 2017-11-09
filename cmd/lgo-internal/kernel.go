@@ -8,6 +8,7 @@ import (
 	"os"
 	"runtime/debug"
 	"time"
+	"unicode/utf8"
 
 	"github.com/yunabe/lgo/cmd/runner"
 	scaffold "github.com/yunabe/lgo/jupyter/gojupyterscaffold"
@@ -118,25 +119,40 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 	}
 }
 
-func (*handlers) HandleComplete(req *scaffold.CompleteRequest) *scaffold.CompleteReply {
+func runeOffsetToByteOffset(s string, roff int) int {
+	var runes int
+	for boff := range s {
+		runes++
+		if runes > roff {
+			return boff
+		}
+	}
+	return len(s)
+}
+
+func (h *handlers) HandleComplete(req *scaffold.CompleteRequest) *scaffold.CompleteReply {
 	// Not implemented
-	return nil
+	offset := runeOffsetToByteOffset(req.Code, req.CursorPos)
+	matches, start, end, err := h.runner.Complete(context.Background(), req.Code, offset)
+	if err != nil {
+		log.Printf("Failed to complete: %v", err)
+		return nil
+	}
+	if len(matches) == 0 {
+		return nil
+	}
+	runeStart := utf8.RuneCountInString(req.Code[:start])
+	runeEnd := runeStart + utf8.RuneCountInString(req.Code[start:end])
+	return &scaffold.CompleteReply{
+		Matches:     matches,
+		Status:      "ok",
+		CursorStart: runeStart,
+		CursorEnd:   runeEnd,
+	}
 }
 
 func (h *handlers) HandleInspect(r *scaffold.InspectRequest) *scaffold.InspectReply {
-	index := -1
-	count := 0
-	for offset := range r.Code {
-		count++
-		if count > r.CursorPos {
-			index = offset
-			break
-		}
-	}
-	if index < 0 {
-		return nil
-	}
-	doc, err := h.runner.Inspect(context.Background(), r.Code, index)
+	doc, err := h.runner.Inspect(context.Background(), r.Code, runeOffsetToByteOffset(r.Code, r.CursorPos))
 	if err != nil {
 		log.Printf("Failed to inspect: %v", err)
 		return nil

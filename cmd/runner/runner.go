@@ -202,6 +202,25 @@ func (rn *LgoRunner) Run(ctx context.Context, src []byte) error {
 	return nil
 }
 
+func (rn *LgoRunner) Complete(ctx context.Context, src string, index int) (matches []string, start, end int, err error) {
+	var olds []types.Object
+	// TODO: Protect rn.vars and rn.imports with locks to make them goroutine safe.
+	for _, obj := range rn.vars {
+		olds = append(olds, obj)
+	}
+	var oldImports []*types.PkgName
+	for _, im := range rn.imports {
+		oldImports = append(oldImports, im)
+	}
+	matches, start, end = converter.Complete([]byte(src), token.Pos(index+1), &converter.Config{
+		Olds:       olds,
+		OldImports: oldImports,
+		DefPrefix:  lgoExportPrefix,
+		RefPrefix:  lgoExportPrefix,
+	})
+	return
+}
+
 // Inspect analyzes src and returns the document of an identifier at index (0-based).
 func (rn *LgoRunner) Inspect(ctx context.Context, src string, index int) (string, error) {
 	var olds []types.Object
