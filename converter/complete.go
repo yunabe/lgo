@@ -67,7 +67,7 @@ func findLastDot(src []byte, idx int) (dot, idStart, idEnd int) {
 		}
 		break
 	}
-	if src[s] == '.' {
+	if s < len(src) && src[s] == '.' {
 		if idStart < 0 {
 			return s, idx, idx
 		}
