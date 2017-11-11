@@ -83,24 +83,25 @@ func Complete(src []byte, pos token.Pos, conf *Config) ([]string, int, int) {
 	return nil, 0, 0
 }
 
-type findSelectorVisitor struct {
-	dotPos   token.Pos
-	selector *ast.SelectorExpr
+// findDotBaseVisitor finds 'x' of 'x.y' or 'x.(type)' expression and stores it to base.
+type findDotBaseVisitor struct {
+	dotPos token.Pos
+	base   ast.Expr
 }
 
-func (v *findSelectorVisitor) Visit(n ast.Node) ast.Visitor {
-	if v.selector != nil || n == nil {
+func (v *findDotBaseVisitor) Visit(n ast.Node) ast.Visitor {
+	if v.base != nil || n == nil {
 		return nil
 	}
 	if v.dotPos < n.Pos() || n.End() <= v.dotPos {
 		return nil
 	}
-	s, _ := n.(*ast.SelectorExpr)
-	if s == nil {
-		return v
+	if n, _ := n.(*ast.SelectorExpr); n != nil && n.X.End() <= v.dotPos && v.dotPos < n.Sel.Pos() {
+		v.base = n.X
+		return nil
 	}
-	if s.X.End() <= v.dotPos && v.dotPos < s.Sel.Pos() {
-		v.selector = s
+	if n, _ := n.(*ast.TypeAssertExpr); n != nil && n.X.End() <= v.dotPos && v.dotPos < n.Lparen {
+		v.base = n.X
 		return nil
 	}
 	return v
@@ -150,16 +151,16 @@ func isPosInFuncBody(blk *parser.LGOBlock, pos token.Pos) bool {
 func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 	// TODO: Consolidate code with Convert and Inspect.
 	fset, blk, _ := parseLesserGoString(string(src))
-	var sel *ast.SelectorExpr
+	var base ast.Expr
 	for _, stmt := range blk.Stmts {
-		v := &findSelectorVisitor{dotPos: token.Pos(dot + 1)}
+		v := &findDotBaseVisitor{dotPos: token.Pos(dot + 1)}
 		ast.Walk(v, stmt)
-		if v.selector != nil {
-			sel = v.selector
+		if v.base != nil {
+			base = v.base
 			break
 		}
 	}
-	if sel == nil {
+	if base == nil {
 		return nil
 	}
 	// Whether dot is inside a function body.
@@ -205,7 +206,7 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 	orig := strings.ToLower(string(src[start:end]))
 
 	if !inFuncBody {
-		return completeSelectExpr(checker, sel, orig)
+		return completeFieldAndMethods(base, orig, checker)
 	}
 
 	convertToPhase2(phase1, pkg, checker, conf, runctx)
@@ -231,7 +232,7 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 		checker := types.NewChecker(chConf, fset, pkg, &info)
 		checker.Files([]*ast.File{phase1.file})
 
-		return completeSelectExpr(checker, sel, orig)
+		return completeFieldAndMethods(base, orig, checker)
 	}
 }
 
@@ -325,7 +326,7 @@ func scanFieldOrMethod(typ types.Type, add func(string)) {
 	}
 }
 
-func completeSelectExpr(checker *types.Checker, sel *ast.SelectorExpr, orig string) []string {
+func completeFieldAndMethods(expr ast.Expr, orig string, checker *types.Checker) []string {
 	suggests := make(map[string]bool)
 	add := func(s string) {
 		if strings.HasPrefix(strings.ToLower(s), orig) {
@@ -334,11 +335,11 @@ func completeSelectExpr(checker *types.Checker, sel *ast.SelectorExpr, orig stri
 	}
 	func() {
 		// Complete package fields selector (e.g. bytes.buf[cur] --> bytes.Buffer)
-		x, _ := sel.X.(*ast.Ident)
-		if x == nil {
+		id, _ := expr.(*ast.Ident)
+		if id == nil {
 			return
 		}
-		obj := checker.Uses[x]
+		obj := checker.Uses[id]
 		if obj == nil {
 			return
 		}
@@ -353,7 +354,7 @@ func completeSelectExpr(checker *types.Checker, sel *ast.SelectorExpr, orig stri
 			}
 		}
 	}()
-	if tv, ok := checker.Types[sel.X]; ok && tv.IsValue() {
+	if tv, ok := checker.Types[expr]; ok && tv.IsValue() {
 		scanFieldOrMethod(tv.Type, add)
 	}
 	if len(suggests) == 0 {

@@ -273,6 +273,32 @@ var q Q = p
 			[selector_example]
 			q.[cur]`,
 			want: []string{"T0", "T1", "x", "y", "z"},
+		}, {
+			// ".(" is parsed as TypeAssertExpr.
+			name: "dot_paren",
+			src: `
+			[selector_example]
+			q.[cur](`,
+			want: []string{"T0", "T1", "x", "y", "z"},
+		}, {
+			name: "before_type_assert",
+			src: `
+			[selector_example]
+			var x interface{}
+			x.(T0).[cur]`,
+			want: []string{"M0", "x"},
+		}, {
+			name: "before_type_switch",
+			src: `
+			[selector_example]
+			type I0 interface {
+				M0()
+			}
+			var i I0
+			switch i.[cur](type) {
+			default:
+			}`,
+			want: []string{"M0"},
 		},
 	}
 	for _, tt := range tests {
