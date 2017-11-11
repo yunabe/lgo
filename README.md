@@ -8,6 +8,8 @@ Interactive Go REPL and Jupyter Notebook kernel
 - Code completion and inspection in Jupyter Notebooks
 - Currently, lgo is only supported on Linux. But you can use lgo on Mac and Windows with virtual machines or Docker.
 
+<img src="https://drive.google.com/uc?export=view&id=12_7fHfKfdSy8SNXi0nsWznbsRgix9tGJ" width="400" height="366">
+
 # Jupyter notebook examples
 - [Example notebooks on Jupyter nbviewer](http://nbviewer.jupyter.org/github/yunabe/lgo/tree/master/examples/)
 - [Example notebooks on GitHub](https://github.com/yunabe/lgo/blob/master/examples/basics.ipynb)
