@@ -133,6 +133,12 @@ func Test_findLastDot(t *testing.T) {
 			wantDot:     -1,
 			wantIDStart: -1,
 			wantIDEnd:   -1,
+		}, {
+			name:        "empty_src",
+			args:        args{"", 0},
+			wantDot:     -1,
+			wantIDStart: -1,
+			wantIDEnd:   -1,
 		},
 	}
 	for _, tt := range tests {
