@@ -1,9 +1,9 @@
 package lgo_exec
 
 import pkg0 "github.com/yunabe/lgo/core"
-func f() (int, float32) {
-	return 10, 2.1
+// fn does nothing
+func fn() {
 }
 func lgo_init() {
-	pkg0.LgoPrintln(f())
+	pkg0.LgoPrintln(<-pkg0.GetExecContext().Done())
 }

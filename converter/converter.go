@@ -16,6 +16,7 @@ import (
 )
 
 const lgoInitFuncName = "lgo_init"
+const lgoPackageName = "lgo_exec" // TODO: Set a proper name.
 
 var defaultImporter = importer.Default()
 
@@ -56,7 +57,7 @@ func uniqueSortedNames(ids []*ast.Ident) []string {
 
 func parseLesserGoString(src string) (*token.FileSet, *parser.LGOBlock, error) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseLesserGoFile(fset, "", []byte(src), 0)
+	f, err := parser.ParseLesserGoFile(fset, "", []byte(src), parser.ParseComments)
 	return fset, f, err
 }
 
@@ -147,9 +148,8 @@ func convertToPhase1(blk *parser.LGOBlock) (out phase1Out) {
 	}
 	decls = append(decls, out.initFunc)
 	out.file = &ast.File{
-		Doc:        blk.Doc,
 		Package:    token.NoPos,
-		Name:       ast.NewIdent("lgo_exec"), // Set a proper name.
+		Name:       ast.NewIdent(lgoPackageName),
 		Decls:      decls,
 		Scope:      blk.Scope,
 		Imports:    blk.Imports,
@@ -162,17 +162,27 @@ func convertToPhase1(blk *parser.LGOBlock) (out phase1Out) {
 func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, conf *Config, runctx types.Object) {
 	immg := newImportManager(pkg, ph1.file, checker)
 	prependPkgToOlds(conf, checker, ph1.file, immg)
+	// TODO: Should we move this after final check?
 	if runctx != nil {
-		for id, def := range checker.Uses {
-			if def != runctx {
-				continue
+		rewriteExpr(ph1.file, func(expr ast.Expr) ast.Expr {
+			id, ok := expr.(*ast.Ident)
+			if !ok {
+				return expr
+			}
+			if checker.Uses[id] != runctx {
+				return expr
 			}
 			corePkg, err := defaultImporter.Import(core.SelfPkgPath)
 			if err != nil {
 				panic(fmt.Sprintf("Failed to import core: %v", err))
 			}
-			id.Name = immg.shortName(corePkg) + ".GetExecContext()"
-		}
+			return &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   &ast.Ident{Name: immg.shortName(corePkg)},
+					Sel: &ast.Ident{Name: "GetExecContext"},
+				},
+			}
+		})
 	}
 
 	var newInitBody []ast.Stmt
@@ -196,7 +206,10 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 				}
 
 				ph1.lastExpr.X = &ast.CallExpr{
-					Fun:  ast.NewIdent(immg.shortName(corePkg) + ".LgoPrintln"),
+					Fun: &ast.SelectorExpr{
+						X:   &ast.Ident{Name: immg.shortName(corePkg)},
+						Sel: &ast.Ident{Name: "LgoPrintln"},
+					},
 					Args: []ast.Expr{target},
 				}
 			}
@@ -206,15 +219,26 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			if gen.Tok == token.VAR {
 				for _, spec := range gen.Specs {
 					spec := spec.(*ast.ValueSpec)
-					for _, name := range spec.Names {
-						if vspec := varSpecFromIdent(immg, pkg, name, checker); vspec != nil {
+					for i, name := range spec.Names {
+						if i == 0 && spec.Type != nil {
+							// Reuses spec.Type so that we can keep original nodes as far as possible.
+							// TODO: Reuse spec for all `i` if spec.Type != nil.
+							if isValidTypeObject(checker.Defs[name]) {
+								varSpecs = append(varSpecs, &ast.ValueSpec{
+									Names: []*ast.Ident{name},
+									Type:  spec.Type,
+								})
+							}
+							continue
+						}
+						if vspec := varSpecFromIdent(immg, pkg, name, checker, true); vspec != nil {
 							varSpecs = append(varSpecs, vspec)
 						}
 					}
 					if spec.Values != nil {
 						var lhs []ast.Expr
 						for _, name := range spec.Names {
-							lhs = append(lhs, name)
+							lhs = append(lhs, &ast.Ident{Name: name.Name})
 						}
 						newInitBody = append(newInitBody, &ast.AssignStmt{
 							Lhs: lhs,
@@ -237,7 +261,7 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			// Define vars.
 			for _, lhs := range assign.Lhs {
 				if ident, ok := lhs.(*ast.Ident); ok {
-					if vspec := varSpecFromIdent(immg, pkg, ident, checker); vspec != nil {
+					if vspec := varSpecFromIdent(immg, pkg, ident, checker, false); vspec != nil {
 						varSpecs = append(varSpecs, vspec)
 					}
 				}
@@ -265,7 +289,10 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			// TODO: Reconsider varSpecs type.
 			for _, name := range vs.(*ast.ValueSpec).Names {
 				call := &ast.CallExpr{
-					Fun: ast.NewIdent(immg.shortName(corePkg) + ".LgoRegisterVar"),
+					Fun: &ast.SelectorExpr{
+						X:   &ast.Ident{Name: immg.shortName(corePkg)},
+						Sel: &ast.Ident{Name: "LgoRegisterVar"},
+					},
 					Args: []ast.Expr{
 						&ast.BasicLit{
 							Kind:  token.STRING,
@@ -314,10 +341,9 @@ func newImportManager(current *types.Package, file *ast.File, checker *types.Che
 	for _, name := range fileScope.Names() {
 		obj := fileScope.Lookup(name)
 		pname, ok := obj.(*types.PkgName)
-		if !ok {
-			continue
+		if ok {
+			names[pname.Imported()] = name
 		}
-		names[pname.Imported()] = name
 	}
 	return &importManager{
 		checker:   checker,
@@ -360,9 +386,26 @@ func (m *importManager) shortName(pkg *types.Package) string {
 	return n
 }
 
-func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident, checker *types.Checker) *ast.ValueSpec {
+// Returns false if obj == nil or the type of obj is types.Invalid.
+func isValidTypeObject(obj types.Object) bool {
+	if obj == nil {
+		return false
+	}
+	if basic, ok := obj.Type().(*types.Basic); ok && basic.Kind() == types.Invalid {
+		return false
+	}
+	return true
+}
+
+// If reuseIdent is true, varSpecFromIdent reuses id in the return value. Otherwise, varSpecFromIdent uses a new Ident inside the return value.
+func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident, checker *types.Checker,
+	reuseIdent bool) *ast.ValueSpec {
 	obj := checker.Defs[ident]
 	if obj == nil {
+		return nil
+	}
+	if !isValidTypeObject(obj) {
+		// This check is important when convertToPhase2 is called from inspectObject.
 		return nil
 	}
 	typStr := types.TypeString(obj.Type(), func(pkg *types.Package) string {
@@ -371,6 +414,9 @@ func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident,
 	typExr, err := parser.ParseExpr(typStr)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to parse type expr %q: %v", typStr, err))
+	}
+	if !reuseIdent {
+		ident = &ast.Ident{Name: ident.Name}
 	}
 	return &ast.ValueSpec{
 		Names: []*ast.Ident{ident},
@@ -396,6 +442,231 @@ type ConvertResult struct {
 	Err     error
 }
 
+// findIdentWithPos finds an ast.Ident node at pos. Returns nil if pos does not point an Ident.
+// findIdentWithPos returns an identifier if pos points the identifier (start <= pos < end) or pos is right after the identifier (pos == end).
+func findIdentWithPos(node ast.Node, pos token.Pos) *ast.Ident {
+	v := &findIdentVisitor{pos: pos}
+	ast.Walk(v, node)
+	return v.ident
+}
+
+type findIdentVisitor struct {
+	pos   token.Pos
+	ident *ast.Ident
+}
+
+func (v *findIdentVisitor) Visit(node ast.Node) ast.Visitor {
+	if node == nil || v.ident != nil {
+		return nil
+	}
+	if v.pos < node.Pos() || node.End() < v.pos {
+		return nil
+	}
+	if id, ok := node.(*ast.Ident); ok {
+		v.ident = id
+		return nil
+	}
+	return v
+}
+
+// InspectIdent shows a document or a query for go doc command for the identifier at pos.
+func InspectIdent(src string, pos token.Pos, conf *Config) (doc, query string) {
+	obj, local := inspectObject(src, pos, conf)
+	if obj == nil {
+		return
+	}
+	doc, q := getDocOrGoDocQuery(obj, local)
+	if doc != "" || q == nil {
+		return
+	}
+	if obj.Pkg().IsLgo {
+		// rename unexported identifiers.
+		for i, id := range q.ids {
+			if len(id) == 0 {
+				continue
+			}
+			if c := id[0]; c < 'A' || 'Z' < c {
+				q.ids[i] = conf.DefPrefix + id
+			}
+		}
+	}
+	query = q.pkg + "." + strings.Join(q.ids, ".")
+	return
+}
+
+func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, isLocal bool) {
+	// TODO: Consolidate code with Convert.
+	fset, blk, _ := parseLesserGoString(src)
+	var target *ast.Ident
+	for _, stmt := range blk.Stmts {
+		if id := findIdentWithPos(stmt, pos); id != nil {
+			target = id
+			break
+		}
+	}
+	if target == nil {
+		return nil, false
+	}
+	phase1 := convertToPhase1(blk)
+
+	makePkg := func() (pkg *types.Package, runctx types.Object) {
+		// TODO: Add a proper name to the package though it's not used at this moment.
+		pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
+		pkg.IsLgo = true
+		// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
+		for _, im := range conf.OldImports {
+			pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
+			vscope.Insert(pname)
+		}
+		if vscope.Lookup("runctx") == nil {
+			ctxP, err := defaultImporter.Import("context")
+			if err != nil {
+				panic(fmt.Sprintf("Failed to import context: %v", err))
+			}
+			runctx = types.NewVar(token.NoPos, pkg, "runctx", ctxP.Scope().Lookup("Context").Type())
+			vscope.Insert(runctx)
+		}
+		return pkg, runctx
+	}
+
+	// var errs []error
+	chConf := &types.Config{
+		Importer: defaultImporter,
+		Error: func(err error) {
+			//	errs = append(errs, err)
+		},
+		IgnoreFuncBodies:  true,
+		DontIgnoreLgoInit: true,
+	}
+	var info = types.Info{
+		Defs:   make(map[*ast.Ident]types.Object),
+		Uses:   make(map[*ast.Ident]types.Object),
+		Scopes: make(map[ast.Node]*types.Scope),
+		Types:  make(map[ast.Expr]types.TypeAndValue),
+	}
+	pkg, runctx := makePkg()
+	checker := types.NewChecker(chConf, fset, pkg, &info)
+	checker.Files([]*ast.File{phase1.file})
+
+	convertToPhase2(phase1, pkg, checker, conf, runctx)
+	{
+		chConf := &types.Config{
+			Importer: newImporterWithOlds(conf.Olds),
+			Error: func(err error) {
+				// Ignore errors.
+				// It is necessary to set this noop func because checker stops analyzing code
+				// when the first error is found if Error is nil.
+			},
+			IgnoreFuncBodies:  false,
+			DontIgnoreLgoInit: true,
+		}
+		var info = types.Info{
+			Defs:   make(map[*ast.Ident]types.Object),
+			Uses:   make(map[*ast.Ident]types.Object),
+			Scopes: make(map[ast.Node]*types.Scope),
+			Types:  make(map[ast.Expr]types.TypeAndValue),
+		}
+		// Note: Do not reuse pkg above here because variables are already defined in the scope of pkg above.
+		pkg, _ := makePkg()
+		checker := types.NewChecker(chConf, fset, pkg, &info)
+		checker.Files([]*ast.File{phase1.file})
+		var obj types.Object
+		obj = checker.Uses[target]
+		if obj == nil {
+			obj = checker.Defs[target]
+		}
+		if obj == nil {
+			return nil, false
+		}
+		return obj, obj.Pkg() == pkg
+	}
+}
+
+type goDocQuery struct {
+	pkg string
+	ids []string
+}
+
+// getDocOrGoDocQuery returns a doc string for obj or a query to retrieve a document with go doc (An argument of go doc command).
+// getDocOrGoDocQuery returns ("", "") if we do not show anything for obj.
+func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDocQuery) {
+	if pkg, _ := obj.(*types.PkgName); pkg != nil {
+		query = &goDocQuery{pkg.Imported().Path(), nil}
+		return
+	}
+	if fn, _ := obj.(*types.Func); fn != nil {
+		if isLocal {
+			// TODO: Print the receiver.
+			var buf bytes.Buffer
+			buf.WriteString("func " + fn.Name())
+			types.WriteSignature(&buf, fn.Type().(*types.Signature), nil)
+			doc = buf.String()
+			return
+		}
+		sig := fn.Type().(*types.Signature)
+		recv := sig.Recv()
+		if recv == nil {
+			query = &goDocQuery{fn.Pkg().Path(), []string{fn.Name()}}
+			return
+		}
+		recv.Name()
+		var recvName string
+		switch recv := recv.Type().(type) {
+		case *types.Named:
+			recvName = recv.Obj().Name()
+		case *types.Pointer:
+			recvName = recv.Elem().(*types.Named).Obj().Name()
+		case *types.Interface:
+			scope := fn.Pkg().Scope()
+			for _, name := range scope.Names() {
+				if tyn, _ := scope.Lookup(name).(*types.TypeName); tyn != nil {
+					if named, _ := tyn.Type().(*types.Named); named != nil {
+						if named.Underlying() == recv {
+							recvName = name
+							break
+						}
+					}
+				}
+			}
+		default:
+			panic(fmt.Errorf("Unexpected receiver type: %#v", recv))
+		}
+		if recvName != "" {
+			query = &goDocQuery{fn.Pkg().Path(), []string{recvName, fn.Name()}}
+		}
+		return
+	}
+	if v, _ := obj.(*types.Var); v != nil {
+		if v.IsField() {
+			// Not implemented
+			return
+		}
+		if isLocal {
+			// Do not use v.String() because we do not want to print the package path here.
+			doc = "var " + v.Name() + " " + v.Type().String()
+			return
+		}
+		query = &goDocQuery{v.Pkg().Path(), []string{v.Name()}}
+		return
+	}
+	if c, _ := obj.(*types.Const); c != nil {
+		if isLocal {
+			doc = "const " + c.Name() + " " + c.Type().String()
+			return
+		}
+		query = &goDocQuery{c.Pkg().Path(), []string{c.Name()}}
+	}
+	if tyn, _ := obj.(*types.TypeName); tyn != nil {
+		if isLocal {
+			doc = "type " + tyn.Name() + " " + tyn.Type().Underlying().String()
+			return
+		}
+		query = &goDocQuery{tyn.Pkg().Path(), []string{tyn.Name()}}
+		return
+	}
+	return
+}
+
 func Convert(src string, conf *Config) *ConvertResult {
 	fset, blk, err := parseLesserGoString(src)
 	if err != nil {
@@ -405,6 +676,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 
 	// TODO: Add a proper name to the package though it's not used at this moment.
 	pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
+	pkg.IsLgo = true
 	// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
 	for _, im := range conf.OldImports {
 		pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
@@ -448,13 +720,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 	}
 	convertToPhase2(phase1, pkg, checker, conf, runctx)
 
-	var buf bytes.Buffer
-	err = format.Node(&buf, token.NewFileSet(), phase1.file)
-	if err != nil {
-		return &ConvertResult{Err: err}
-	}
-	fsrc := buf.Bytes()
-	fsrc, fpkg, fcheck, err := finalCheckAndRename(fsrc, conf)
+	fsrc, fpkg, fcheck, err := finalCheckAndRename(phase1.file, fset, conf)
 	if err != nil {
 		return &ConvertResult{Err: err}
 	}
@@ -534,11 +800,23 @@ func prependPkgToOlds(conf *Config, checker *types.Checker, file *ast.File, immg
 		qualifiedID: make(map[*ast.Ident]bool),
 	}
 	ast.Walk(qif, file)
-	for id, obj := range checker.Uses {
-		if isOld[obj] && !qif.qualifiedID[id] {
-			id.Name = immg.shortName(obj.Pkg()) + "." + id.Name
+	rewriteExpr(file, func(expr ast.Expr) ast.Expr {
+		id, ok := expr.(*ast.Ident)
+		if !ok {
+			return expr
 		}
-	}
+		obj, ok := checker.Uses[id]
+		if !ok {
+			return expr
+		}
+		if !isOld[obj] || qif.qualifiedID[id] {
+			return expr
+		}
+		return &ast.SelectorExpr{
+			X:   &ast.Ident{Name: immg.shortName(obj.Pkg())},
+			Sel: id,
+		}
+	})
 }
 
 // prependPrefixToID prepends a prefix to the name of ident.
@@ -552,13 +830,7 @@ func prependPrefixToID(indent *ast.Ident, prefix string) {
 	}
 }
 
-func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *types.Checker, error) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "", src, 0)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
+func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]byte, *types.Package, *types.Checker, error) {
 	var errs []error
 	chConf := &types.Config{
 		Importer: newImporterWithOlds(conf.Olds),
@@ -693,12 +965,11 @@ func finalCheckAndRename(src []byte, conf *Config) ([]byte, *types.Package, *typ
 			prependPrefixToID(ident, conf.RefPrefix)
 		}
 	}
-	var buf bytes.Buffer
-	err = format.Node(&buf, token.NewFileSet(), file)
+	finalSrc, err := printFinalResult(file, fset)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return buf.Bytes(), pkg, checker, nil
+	return finalSrc, pkg, checker, nil
 }
 
 func capturePanicInGoRoutine(file *ast.File, immg *importManager, defs map[*ast.Ident]types.Object) {
@@ -739,7 +1010,10 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 				List: []ast.Stmt{
 					&ast.DeferStmt{
 						Call: &ast.CallExpr{
-							Fun:  ast.NewIdent(v.immg.shortName(corePkg) + ".FinalizeGoroutine"),
+							Fun: &ast.SelectorExpr{
+								X:   &ast.Ident{Name: v.immg.shortName(corePkg)},
+								Sel: &ast.Ident{Name: "FinalizeGoroutine"},
+							},
 							Args: []ast.Expr{&ast.Ident{Name: ectx}},
 						},
 					},
@@ -766,30 +1040,40 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 	return nil
 }
 
-func (v *wrapGoStmtVisitor) Visit2(node ast.Node) ast.Visitor {
-	g, ok := node.(*ast.GoStmt)
-	if !ok {
-		return v
+// printFinalResult converts the lgo final *ast.File into Go code. This function is almost identical to go/format.Node.
+// This custom function is necessary to handle comments in the first line properly.
+// See the results of "TestConvert_comment.* tests.
+func printFinalResult(file *ast.File, fset *token.FileSet) ([]byte, error) {
+	// c.f. func (p *printer) file(src *ast.File) in https://golang.org/src/go/printer/nodes.go
+	var buf bytes.Buffer
+	var err error
+	w := func(s string) {
+		if err == nil {
+			_, err = buf.WriteString(s)
+		}
 	}
-	corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
-	fu := &ast.FuncLit{
-		Type: &ast.FuncType{},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.DeferStmt{
-					Call: &ast.CallExpr{
-						Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".FinalizeGoroutine"),
-						Args: []ast.Expr{
-							&ast.CallExpr{
-								Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".InitGoroutine"),
-							},
-						},
-					},
-				},
-				&ast.ExprStmt{X: g.Call},
-			},
-		},
+	newLine := func() {
+		if err != nil {
+			return
+		}
+		if b := buf.Bytes(); b[len(b)-1] != '\n' {
+			w("\n")
+		}
 	}
-	g.Call = &ast.CallExpr{Fun: fu}
-	return v
+	w("package ")
+	w(file.Name.Name)
+	w("\n\n")
+	for _, decl := range file.Decls {
+		if err == nil {
+			err = format.Node(&buf, fset, decl)
+			newLine()
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if b := buf.Bytes(); b[len(b)-1] != '\n' {
+		w("\n")
+	}
+	return buf.Bytes(), nil
 }

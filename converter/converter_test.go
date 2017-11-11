@@ -622,6 +622,31 @@ func TestConvert_autoExitCode(t *testing.T) {
 	checkGolden(t, result.Src, "testdata/autoexit.golden")
 }
 
+func TestConvert_autoExitCodeImportOnly(t *testing.T) {
+	result := Convert(`
+	import (
+		"fmt"
+		"os"
+	)
+	`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	if len(result.Src) != 0 {
+		t.Errorf("Expected an empty src but got %q", result.Src)
+	}
+}
+
+func TestConvert_autoExitCodeVarOnly(t *testing.T) {
+	result := Convert(`var x int`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/autoexit_varonly.golden")
+}
+
 func TestConvert_registerVars(t *testing.T) {
 	result := Convert(`
 	a := 10
@@ -648,6 +673,118 @@ func TestConvert_wrapGoStmt(t *testing.T) {
 		return
 	}
 	checkGolden(t, result.Src, "testdata/wrap_gostmt.golden")
+}
+
+// Demostrates how converter keeps comments.
+func TestConvert_comments(t *testing.T) {
+	result := Convert(`// Top-level comment
+	// The second line of the top-level comment
+
+	// dangling comments 
+	
+	// fn does nothing
+	func fn() {
+		// Do nothing
+	}
+
+	// MyType represents something
+	type MyType struct {
+		Name string  // name
+		Age int // age
+	}
+
+	// Hello returns a hello message
+	func (m *MyType) Hello() string {
+		return "Hello " + m.Name
+	}
+
+	type MyInterface interface {
+		// DoSomething does something
+		DoSomething(x int) float32
+		Hello() string // Say hello
+	}
+
+	var (
+		x int = 10  // Something
+		// y is string
+		y = "hello"
+	)
+	const (
+		c = "constant"  // This is constant
+		// d is also constant
+		d = 123
+	)
+
+    // alice is Alice
+	alice := &MyType{"Alice", 12}
+	bob := &MyType{"Bob", 45}  // bob is Bob
+
+	// i is interface
+	var i interface{} = alice
+	var j interface{} = bob // j is also interface
+	`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments.golden")
+}
+
+func TestConvert_commentFirstLine(t *testing.T) {
+	result := Convert(`// fn does nothing
+	func fn() {
+		// Do nothing
+	}`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments_firstline.golden")
+}
+
+func TestConvert_commentFirstLineWithCore(t *testing.T) {
+	result := Convert(`// fn does nothing
+	func fn() {
+	}
+	<-runctx.Done()
+	`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments_firstline__withcore.golden")
+}
+
+func TestConvert_commentFirstLineSlashAsterisk(t *testing.T) {
+	result := Convert(`/* fn does nothing */
+	func fn() {
+		// Do nothing
+	}`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	// TODO: Fix this case
+	checkGolden(t, result.Src, "testdata/comments_firstline_slashasterisk.golden")
+}
+
+func TestConvert_commentFirstTrailing(t *testing.T) {
+	result := Convert(`const x = 10 // x is const int
+		`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments_firstline_trailing.golden")
+}
+
+func TestConvert_commentLastLine(t *testing.T) {
+	result := Convert(`const x int = 123 // x is x`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/comments_lastline.golden")
 }
 
 func Test_prependPrefixToID(t *testing.T) {

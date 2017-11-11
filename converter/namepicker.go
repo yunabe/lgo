@@ -12,7 +12,7 @@ type namePicker struct {
 
 func newNamePicker(defs map[*ast.Ident]types.Object) *namePicker {
 	m := make(map[string]bool)
-	for id, _ := range defs {
+	for id := range defs {
 		m[id.Name] = true
 	}
 	return &namePicker{m}

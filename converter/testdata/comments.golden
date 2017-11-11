@@ -1,0 +1,44 @@
+package lgo_exec
+
+// fn does nothing
+func fn() {
+
+}
+// MyType represents something
+type MyType struct {
+	Name string // name
+	Age  int    // age
+}
+// Hello returns a hello message
+func (m *MyType) Hello() string {
+	return "Hello " + m.Name
+}
+type MyInterface interface {
+	// DoSomething does something
+	DoSomething(x int) float32
+	Hello() string // Say hello
+}
+func lgo_init() {
+	x = 10
+	y = "hello"
+
+	alice = &MyType{"Alice", 12}
+	bob = &MyType{"Bob", 45}
+	i = alice
+	j = bob
+}
+const (
+	c = "constant" // This is constant
+	// d is also constant
+	d = 123
+)
+var (
+	x int
+
+	y     string
+	alice *MyType
+	bob   *MyType
+
+	i interface{}
+	j interface{}
+)

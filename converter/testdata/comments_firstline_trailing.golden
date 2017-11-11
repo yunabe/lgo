@@ -1,0 +1,3 @@
+package lgo_exec
+
+const x = 10 // x is const int

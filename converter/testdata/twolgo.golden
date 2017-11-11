@@ -1,23 +1,25 @@
 package lgo_exec
 
 import pkg0 "lgo/pkg0"
-
 func lgo_init() {
 	a = pkg0.f(3)
-	s = pkg0.st{value: 20}
+	s = pkg0.st{
+		value: 20,
+	}
 	b = s.value
 	c = s.getValue()
 	d = interface {
 		getValue() float32
 	}(&s)
 	f = d.getValue()
+
 	g = pkg0.getUnnamedStruct()
 	h = g
 }
-
 var (
 	a int
-	s pkg0.st
+	s pkg0.
+		st
 	b int
 	c float32
 	d interface {
@@ -25,5 +27,6 @@ var (
 	}
 	f float32
 	g struct{ x int }
+
 	h struct{ x int }
 )

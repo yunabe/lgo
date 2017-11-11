@@ -1,10 +1,14 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"go/scanner"
+	"go/token"
 	"go/types"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -113,6 +117,34 @@ func (rn *LgoRunner) isCtxDone(ctx context.Context) bool {
 	}
 }
 
+const maxErrLines = 5
+
+// PrintError prints err to w.
+// If err is scanner.ErrorList or convert.ErrorList, it expands internal errors.
+func PrintError(w io.Writer, err error) {
+	var length int
+	var get func(int) error
+	if lst, ok := err.(scanner.ErrorList); ok {
+		length = len(lst)
+		get = func(i int) error { return lst[i] }
+	} else if lst, ok := err.(converter.ErrorList); ok {
+		length = len(lst)
+		get = func(i int) error { return lst[i] }
+	} else {
+		fmt.Fprintln(w, err.Error())
+		return
+	}
+	for i := 0; i < maxErrLines && i < length; i++ {
+		msg := get(i).Error()
+		if i == maxErrLines-1 && i != length-1 {
+			msg += fmt.Sprintf(" (and %d more errors)", length-1-i)
+		}
+		fmt.Fprintln(w, msg)
+	}
+}
+
+const lgoExportPrefix = "LgoExport_"
+
 func (rn *LgoRunner) Run(ctx context.Context, src []byte) error {
 	rn.execCount++
 	sessDir := "github.com/yunabe/lgo/" + rn.sessID.Marshal()
@@ -128,8 +160,8 @@ func (rn *LgoRunner) Run(ctx context.Context, src []byte) error {
 	result := converter.Convert(string(src), &converter.Config{
 		Olds:         olds,
 		OldImports:   oldImports,
-		DefPrefix:    "LgoExport_",
-		RefPrefix:    "LgoExport_",
+		DefPrefix:    lgoExportPrefix,
+		RefPrefix:    lgoExportPrefix,
 		LgoPkgPath:   pkgPath,
 		AutoExitCode: true,
 		RegisterVars: true,
@@ -168,6 +200,57 @@ func (rn *LgoRunner) Run(ctx context.Context, src []byte) error {
 		return ErrInterrupted
 	}
 	return nil
+}
+
+func (rn *LgoRunner) Complete(ctx context.Context, src string, index int) (matches []string, start, end int, err error) {
+	var olds []types.Object
+	// TODO: Protect rn.vars and rn.imports with locks to make them goroutine safe.
+	for _, obj := range rn.vars {
+		olds = append(olds, obj)
+	}
+	var oldImports []*types.PkgName
+	for _, im := range rn.imports {
+		oldImports = append(oldImports, im)
+	}
+	matches, start, end = converter.Complete([]byte(src), token.Pos(index+1), &converter.Config{
+		Olds:       olds,
+		OldImports: oldImports,
+		DefPrefix:  lgoExportPrefix,
+		RefPrefix:  lgoExportPrefix,
+	})
+	return
+}
+
+// Inspect analyzes src and returns the document of an identifier at index (0-based).
+func (rn *LgoRunner) Inspect(ctx context.Context, src string, index int) (string, error) {
+	var olds []types.Object
+	// TODO: Protect rn.vars and rn.imports with locks to make them goroutine safe.
+	for _, obj := range rn.vars {
+		olds = append(olds, obj)
+	}
+	var oldImports []*types.PkgName
+	for _, im := range rn.imports {
+		oldImports = append(oldImports, im)
+	}
+	doc, query := converter.InspectIdent(src, token.Pos(index+1), &converter.Config{
+		Olds:       olds,
+		OldImports: oldImports,
+		DefPrefix:  lgoExportPrefix,
+		RefPrefix:  lgoExportPrefix,
+	})
+	if doc != "" {
+		return doc, nil
+	}
+	if query == "" {
+		return "", nil
+	}
+	cmd := exec.CommandContext(ctx, "go", "doc", query)
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	return strings.Replace(buf.String(), lgoExportPrefix, "", -1), nil
 }
 
 func (rn *LgoRunner) CleanUp() error {

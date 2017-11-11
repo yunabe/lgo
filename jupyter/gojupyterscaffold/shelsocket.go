@@ -312,6 +312,35 @@ func (s *shellSocket) handleMessages() error {
 		// TODO: Send shutdown_reply
 	case "execute_request":
 		s.execQueue.push(&msg, s)
+	case "complete_request":
+		go func() {
+			reply := s.handlers.HandleComplete(msg.Content.(*CompleteRequest))
+			res := newMessageWithParent(&msg)
+			res.Header.MsgType = "complete_reply"
+			if reply != nil {
+				res.Content = reply
+			} else {
+				res.Content = &CompleteReply{
+					Status: "ok",
+				}
+			}
+			s.pushResult(res)
+		}()
+	case "inspect_request":
+		go func() {
+			reply := s.handlers.HandleInspect(msg.Content.(*InspectRequest))
+			res := newMessageWithParent(&msg)
+			res.Header.MsgType = "inspect_reply"
+			if reply != nil {
+				res.Content = reply
+			} else {
+				res.Content = &InspectReply{
+					Status: "ok",
+					Found:  false,
+				}
+			}
+			s.pushResult(res)
+		}()
 	default:
 		log.Printf("Unsupported MsgType in %s: %q", s.name, typ)
 	}
