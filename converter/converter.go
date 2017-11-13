@@ -17,6 +17,7 @@ import (
 
 const lgoInitFuncName = "lgo_init"
 const lgoPackageName = "lgo_exec" // TODO: Set a proper name.
+const runCtxName = "_ctx"
 
 var defaultImporter = importer.Default()
 
@@ -518,12 +519,12 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 			pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
 			vscope.Insert(pname)
 		}
-		if vscope.Lookup("runctx") == nil {
+		if vscope.Lookup(runCtxName) == nil {
 			ctxP, err := defaultImporter.Import("context")
 			if err != nil {
 				panic(fmt.Sprintf("Failed to import context: %v", err))
 			}
-			runctx = types.NewVar(token.NoPos, pkg, "runctx", ctxP.Scope().Lookup("Context").Type())
+			runctx = types.NewVar(token.NoPos, pkg, runCtxName, ctxP.Scope().Lookup("Context").Type())
 			vscope.Insert(runctx)
 		}
 		return pkg, runctx
@@ -683,12 +684,12 @@ func Convert(src string, conf *Config) *ConvertResult {
 		vscope.Insert(pname)
 	}
 	var runctx types.Object
-	if vscope.Lookup("runctx") == nil {
+	if vscope.Lookup(runCtxName) == nil {
 		ctxP, err := defaultImporter.Import("context")
 		if err != nil {
 			panic(fmt.Sprintf("Failed to import context: %v", err))
 		}
-		runctx = types.NewVar(token.NoPos, pkg, "runctx", ctxP.Scope().Lookup("Context").Type())
+		runctx = types.NewVar(token.NoPos, pkg, runCtxName, ctxP.Scope().Lookup("Context").Type())
 		vscope.Insert(runctx)
 	}
 

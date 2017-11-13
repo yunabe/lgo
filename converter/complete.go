@@ -176,12 +176,12 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 			pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
 			vscope.Insert(pname)
 		}
-		if vscope.Lookup("runctx") == nil {
+		if vscope.Lookup(runCtxName) == nil {
 			ctxP, err := defaultImporter.Import("context")
 			if err != nil {
 				panic(fmt.Sprintf("Failed to import context: %v", err))
 			}
-			runctx = types.NewVar(token.NoPos, pkg, "runctx", ctxP.Scope().Lookup("Context").Type())
+			runctx = types.NewVar(token.NoPos, pkg, runCtxName, ctxP.Scope().Lookup("Context").Type())
 			vscope.Insert(runctx)
 		}
 		return pkg, runctx
