@@ -20,16 +20,44 @@ const SelfPkgPath = "github.com/yunabe/lgo/core"
 // To access this var, use atomic.Store/LoadUint32.
 var isRunning uint32
 
+// A LgoContext carries a context of lgo execution.
+type LgoContext struct {
+	// Go context.Context.
+	context.Context
+	// Display displays non-text content in Jupyter Notebook.
+	Display DataDisplayer
+}
+
+func lgoCtxWithCancel(ctx LgoContext) (LgoContext, context.CancelFunc) {
+	goctx, cancel := context.WithCancel(ctx.Context)
+	return LgoContext{goctx, ctx.Display}, cancel
+}
+
+// DataDisplayer is the interface that wraps Jupyter Notebook display_data protocol.
+// http://jupyter-client.readthedocs.io/en/latest/messaging.html#display-data
+type DataDisplayer interface {
+	JavaScript(s string, id *string)
+	HTML(s string, id *string)
+	Markdown(s string, id *string)
+	Latex(s string, id *string)
+	SVG(s string, id *string)
+	PNG(b []byte, id *string)
+	JPEG(b []byte, id *string)
+	GIF(b []byte, id *string)
+	PDF(b []byte, id *string)
+	Text(s string, id *string)
+}
+
 type ExecutionState struct {
-	Context     context.Context
+	Context     LgoContext
 	cancelCtx   func()
 	canceled    bool
 	cancelMu    sync.Mutex
 	goroutineWg sync.WaitGroup
 }
 
-func newExecutionState(parent context.Context) *ExecutionState {
-	ctx, cancel := context.WithCancel(parent)
+func newExecutionState(parent LgoContext) *ExecutionState {
+	ctx, cancel := lgoCtxWithCancel(parent)
 	e := &ExecutionState{
 		Context:   ctx,
 		cancelCtx: cancel,
@@ -64,15 +92,15 @@ var execState *ExecutionState
 var execStateMu sync.Mutex
 
 // canceledCtx is used to return an canceled context when GetExecContext() is invoked when execState is nil.
-var canceledCtx context.Context
+var canceledCtx LgoContext
 
 func init() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	canceledCtx = ctx
+	canceledCtx = LgoContext{Context: ctx}
 }
 
-func GetExecContext() context.Context {
+func GetExecContext() LgoContext {
 	if e := getExecState(); e != nil {
 		return e.Context
 	}
@@ -91,7 +119,7 @@ func setExecState(e *ExecutionState) {
 	execState = e
 }
 
-func StartExec(parent context.Context) {
+func StartExec(parent LgoContext) {
 	atomic.StoreUint32(&isRunning, 1)
 	setExecState(newExecutionState(parent))
 }

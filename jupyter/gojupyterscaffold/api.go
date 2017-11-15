@@ -95,8 +95,15 @@ type ExecuteResult struct {
 //
 // omitempty is important not to output "metadata: null", which results in
 // Failed validating u'type' in display_data[u'properties'][u'metadata'] in Jupyter notebook.
+//
+// c.f.
+// The definition of MIME-type and the right format of value:
+// Search for "MIME_HTML"
+// https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/outputarea.js
+// A special handling of "application/json"
+// https://github.com/jupyter/jupyter_client/blob/master/jupyter_client/adapter.py
 type DisplayData struct {
 	Data      map[string]interface{} `json:"data,omitempty"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
-	Transidnt map[string]interface{} `json:"transient,omitempty"`
+	Transient map[string]interface{} `json:"transient,omitempty"`
 }

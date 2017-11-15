@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/yunabe/lgo/cmd/runner"
+	"github.com/yunabe/lgo/core"
 	scaffold "github.com/yunabe/lgo/jupyter/gojupyterscaffold"
 )
 
@@ -65,6 +66,40 @@ func pipeOutput(send func(string), file **os.File, done chan<- struct{}) (close 
 	return close, nil
 }
 
+type jupyterDisplayer func(*scaffold.DisplayData)
+
+// var DisplayDataUnavailable = errors.New("display_data is not available")
+// type emptyDataDisplayer struct{}
+
+func (d jupyterDisplayer) displayString(contentType, content string) {
+	d(&scaffold.DisplayData{
+		Data: map[string]interface{}{
+			contentType: content,
+		},
+	})
+}
+
+func (d jupyterDisplayer) displayBytes(contentType string, content []byte) {
+	d(&scaffold.DisplayData{
+		Data: map[string]interface{}{
+			contentType: content,
+		},
+	})
+}
+
+func (d jupyterDisplayer) JavaScript(s string, id *string) {
+	d.displayString("application/javascript", s)
+}
+func (d jupyterDisplayer) HTML(s string, id *string)     { d.displayString("text/html", s) }
+func (d jupyterDisplayer) Markdown(s string, id *string) { d.displayString("text/markdown", s) }
+func (d jupyterDisplayer) Latex(s string, id *string)    { d.displayString("text/latex", s) }
+func (d jupyterDisplayer) SVG(s string, id *string)      { panic("Not implemented") }
+func (d jupyterDisplayer) PNG(b []byte, id *string)      { d.displayBytes("image/png", b) }
+func (d jupyterDisplayer) JPEG(b []byte, id *string)     { d.displayBytes("image/jpeg", b) }
+func (d jupyterDisplayer) GIF(b []byte, id *string)      { d.displayBytes("image/gif", b) }
+func (d jupyterDisplayer) PDF(b []byte, id *string)      { d.displayBytes("application/pdf", b) }
+func (d jupyterDisplayer) Text(s string, id *string)     { d.displayString("text/plain", s) }
+
 func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.ExecuteRequest, stream func(string, string), displayData func(*scaffold.DisplayData)) *scaffold.ExecuteResult {
 	h.execCount++
 	rDone := make(chan struct{})
@@ -88,6 +123,9 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 			ExecutionCount: h.execCount,
 		}
 	}
+	lgoCtx := core.LgoContext{
+		Context: ctx, Display: jupyterDisplayer(displayData),
+	}
 	func() {
 		defer func() {
 			p := recover()
@@ -97,7 +135,7 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 			}
 		}()
 		// Print the err in the notebook
-		if err = h.runner.Run(ctx, []byte(r.Code)); err != nil {
+		if err = h.runner.Run(lgoCtx, []byte(r.Code)); err != nil {
 			runner.PrintError(os.Stderr, err)
 		}
 	}()

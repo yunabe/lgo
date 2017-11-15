@@ -8,7 +8,7 @@ import (
 
 func TestExecutionContext(t *testing.T) {
 	atomic.StoreUint32(&isRunning, 0)
-	StartExec(context.Background())
+	StartExec(LgoContext{Context: context.Background()})
 
 	if running := atomic.LoadUint32(&isRunning); running != 1 {
 		t.Errorf("Expected 1 but got %d", running)

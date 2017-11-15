@@ -508,11 +508,11 @@ func TestConvert_emptyResult(t *testing.T) {
 	}
 }
 
-func TestConvert_runctxBuiltin(t *testing.T) {
+func TestConvert_lgoctxBuiltin(t *testing.T) {
 	result := Convert(`
 	for {
 		select {
-			case <-runctx.Done():
+			case <-_ctx.Done():
 				break
 		}
 	}
@@ -521,7 +521,7 @@ func TestConvert_runctxBuiltin(t *testing.T) {
 		t.Error(result.Err)
 		return
 	}
-	checkGolden(t, result.Src, "testdata/runctx_builtin.golden")
+	checkGolden(t, result.Src, "testdata/lgoctx_builtin.golden")
 }
 
 func TestConvert_autoExitCode(t *testing.T) {
@@ -746,7 +746,7 @@ func TestConvert_commentFirstLineWithCore(t *testing.T) {
 	result := Convert(`// fn does nothing
 	func fn() {
 	}
-	<-runctx.Done()
+	<-_ctx.Done()
 	`, &Config{LgoPkgPath: "lgo/pkg0"})
 	if result.Err != nil {
 		t.Error(result.Err)

@@ -26,7 +26,7 @@ import (
 */
 import "C"
 
-func loadShared(ctx context.Context, buildPkgDir, pkgPath string) (canceled bool) {
+func loadShared(ctx core.LgoContext, buildPkgDir, pkgPath string) (canceled bool) {
 	core.StartExec(ctx)
 	defer func() {
 		core.FinalizeExec()
@@ -145,7 +145,7 @@ func PrintError(w io.Writer, err error) {
 
 const lgoExportPrefix = "LgoExport_"
 
-func (rn *LgoRunner) Run(ctx context.Context, src []byte) error {
+func (rn *LgoRunner) Run(ctx core.LgoContext, src []byte) error {
 	rn.execCount++
 	sessDir := "github.com/yunabe/lgo/" + rn.sessID.Marshal()
 	pkgPath := path.Join(sessDir, fmt.Sprintf("exec%d", rn.execCount))

@@ -76,7 +76,7 @@ func fromFiles(ctx context.Context, rn *runner.LgoRunner) {
 			log.Printf("Failed to read %s: %v", path, err)
 			return
 		}
-		if err = rn.Run(ctx, src); err != nil {
+		if err = rn.Run(core.LgoContext{Context: ctx}, src); err != nil {
 			log.Println(err)
 			return
 		}
@@ -118,7 +118,7 @@ loop:
 					fmt.Fprintf(os.Stderr, "panic: %v\n\n%s", p, debug.Stack())
 				}
 			}()
-			if err := rn.Run(runCtx, src); err != nil {
+			if err := rn.Run(core.LgoContext{Context: runCtx}, src); err != nil {
 				log.Println(err)
 			}
 		}()
