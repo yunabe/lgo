@@ -166,7 +166,7 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 	inFuncBody := isPosInFuncBody(blk, token.Pos(dot+1))
 
 	phase1 := convertToPhase1(blk)
-	makePkg := func() (pkg *types.Package, runctx types.Object) {
+	makePkg := func() *types.Package {
 		// TODO: Add a proper name to the package though it's not used at this moment.
 		pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
 		pkg.IsLgo = true
@@ -175,8 +175,8 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 			pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
 			vscope.Insert(pname)
 		}
-		runctx = injectLgoContext(pkg, vscope)
-		return pkg, runctx
+		injectLgoContext(pkg, vscope)
+		return pkg
 	}
 
 	chConf := &types.Config{
@@ -191,7 +191,7 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 		Scopes: make(map[ast.Node]*types.Scope),
 		Types:  make(map[ast.Expr]types.TypeAndValue),
 	}
-	pkg, runctx := makePkg()
+	pkg := makePkg()
 	checker := types.NewChecker(chConf, fset, pkg, &info)
 	checker.Files([]*ast.File{phase1.file})
 
@@ -201,7 +201,7 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 		return completeFieldAndMethods(base, orig, checker)
 	}
 
-	convertToPhase2(phase1, pkg, checker, conf, runctx)
+	convertToPhase2(phase1, pkg, checker, conf)
 	{
 		chConf := &types.Config{
 			Importer: newImporterWithOlds(conf.Olds),
@@ -220,7 +220,7 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 			Types:  make(map[ast.Expr]types.TypeAndValue),
 		}
 		// Note: Do not reuse pkg above here because variables are already defined in the scope of pkg above.
-		pkg, _ := makePkg()
+		pkg := makePkg()
 		checker := types.NewChecker(chConf, fset, pkg, &info)
 		checker.Files([]*ast.File{phase1.file})
 

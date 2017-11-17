@@ -160,31 +160,9 @@ func convertToPhase1(blk *parser.LGOBlock) (out phase1Out) {
 	return
 }
 
-func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, conf *Config, runctx types.Object) {
+func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, conf *Config) {
 	immg := newImportManager(pkg, ph1.file, checker)
 	prependPkgToOlds(conf, checker, ph1.file, immg)
-	// TODO: Should we move this after final check?
-	if runctx != nil {
-		rewriteExpr(ph1.file, func(expr ast.Expr) ast.Expr {
-			id, ok := expr.(*ast.Ident)
-			if !ok {
-				return expr
-			}
-			if checker.Uses[id] != runctx {
-				return expr
-			}
-			corePkg, err := defaultImporter.Import(core.SelfPkgPath)
-			if err != nil {
-				panic(fmt.Sprintf("Failed to import core: %v", err))
-			}
-			return &ast.CallExpr{
-				Fun: &ast.SelectorExpr{
-					X:   &ast.Ident{Name: immg.shortName(corePkg)},
-					Sel: &ast.Ident{Name: "GetExecContext"},
-				},
-			}
-		})
-	}
 
 	var newInitBody []ast.Stmt
 	var varSpecs []ast.Spec
@@ -523,7 +501,7 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 	}
 	phase1 := convertToPhase1(blk)
 
-	makePkg := func() (pkg *types.Package, runctx types.Object) {
+	makePkg := func() *types.Package {
 		// TODO: Add a proper name to the package though it's not used at this moment.
 		pkg, vscope := types.NewPackageWithOldValues("cmd/hello", "", conf.Olds)
 		pkg.IsLgo = true
@@ -532,8 +510,8 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 			pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
 			vscope.Insert(pname)
 		}
-		runctx = injectLgoContext(pkg, vscope)
-		return pkg, runctx
+		injectLgoContext(pkg, vscope)
+		return pkg
 	}
 
 	// var errs []error
@@ -551,11 +529,11 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 		Scopes: make(map[ast.Node]*types.Scope),
 		Types:  make(map[ast.Expr]types.TypeAndValue),
 	}
-	pkg, runctx := makePkg()
+	pkg := makePkg()
 	checker := types.NewChecker(chConf, fset, pkg, &info)
 	checker.Files([]*ast.File{phase1.file})
 
-	convertToPhase2(phase1, pkg, checker, conf, runctx)
+	convertToPhase2(phase1, pkg, checker, conf)
 	{
 		chConf := &types.Config{
 			Importer: newImporterWithOlds(conf.Olds),
@@ -574,7 +552,7 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 			Types:  make(map[ast.Expr]types.TypeAndValue),
 		}
 		// Note: Do not reuse pkg above here because variables are already defined in the scope of pkg above.
-		pkg, _ := makePkg()
+		pkg := makePkg()
 		checker := types.NewChecker(chConf, fset, pkg, &info)
 		checker.Files([]*ast.File{phase1.file})
 		var obj types.Object
@@ -689,7 +667,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 		pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
 		vscope.Insert(pname)
 	}
-	runctx := injectLgoContext(pkg, vscope)
+	injectLgoContext(pkg, vscope)
 
 	var errs []error
 	chConf := &types.Config{
@@ -717,7 +695,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 		}
 		return &ConvertResult{Err: err}
 	}
-	convertToPhase2(phase1, pkg, checker, conf, runctx)
+	convertToPhase2(phase1, pkg, checker, conf)
 
 	fsrc, fpkg, fcheck, err := finalCheckAndRename(phase1.file, fset, conf)
 	if err != nil {
@@ -839,6 +817,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 		DisableUnusedImportCheck: true,
 	}
 	pkg, vscope := types.NewPackageWithOldValues(conf.LgoPkgPath, "", conf.Olds)
+	pkg.IsLgo = true
 	var oldImports []*types.PkgName
 	// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
 	for _, im := range conf.OldImports {
@@ -846,7 +825,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 		vscope.Insert(pname)
 		oldImports = append(oldImports, pname)
 	}
-	pkg.IsLgo = true
+	runctx := injectLgoContext(pkg, vscope)
 	info := &types.Info{
 		Defs:      make(map[*ast.Ident]types.Object),
 		Uses:      make(map[*ast.Ident]types.Object),
@@ -883,6 +862,26 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 	}
 	immg := newImportManager(pkg, file, checker)
 	prependPkgToOlds(conf, checker, file, immg)
+	rewriteExpr(file, func(expr ast.Expr) ast.Expr {
+		// Rewrite _ctx with core.GetExecContext().
+		id, ok := expr.(*ast.Ident)
+		if !ok {
+			return expr
+		}
+		if checker.Uses[id] != runctx {
+			return expr
+		}
+		corePkg, err := defaultImporter.Import(core.SelfPkgPath)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to import core: %v", err))
+		}
+		return &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   &ast.Ident{Name: immg.shortName(corePkg)},
+				Sel: &ast.Ident{Name: "GetExecContext"},
+			},
+		}
+	})
 
 	// Inject auto-exit code
 	if conf.AutoExitCode {

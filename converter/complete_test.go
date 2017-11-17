@@ -305,6 +305,18 @@ var q Q = p
 			default:
 			}`,
 			want: []string{"M0"},
+		}, {
+			name: "lgo_context",
+			src: `
+			_ctx.val[cur]`,
+			want: []string{"Value"},
+		}, {
+			name: "lgo_context_infunc",
+			src: `
+			func f() {
+				_ctx.val[cur]
+			}`,
+			want: []string{"Value"},
 		},
 	}
 	for _, tt := range tests {

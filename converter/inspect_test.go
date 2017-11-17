@@ -288,6 +288,21 @@ func TestInspect(t *testing.T) {
 			name: "def_type",
 			src:  `type [cur]myType int`,
 			doc:  "type myType int",
+		}, {
+			name: "lgo_context",
+			src:  `_[cur]ctx.Done()`,
+			doc:  "var _ctx github.com/yunabe/lgo/core.LgoContext",
+		}, {
+			name:  "lgo_context_method",
+			src:   `_ctx.[cur]Done()`,
+			query: "context.Context.Done",
+		}, {
+			name: "lgo_context_infunc",
+			src: `
+			func f() {
+				_ctx.[cur]Done()
+			}`,
+			query: "context.Context.Done",
 		},
 	}
 	for _, tt := range tests {
@@ -312,7 +327,7 @@ func TestInspect(t *testing.T) {
 				t.Errorf("Expected %q but got %q", tt.doc, doc)
 			}
 			if tt.query != queryStr {
-				t.Errorf("Expected %q but got %q", tt.query, query)
+				t.Errorf("Expected %q but got %q", tt.query, queryStr)
 			}
 		})
 	}

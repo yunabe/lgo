@@ -510,6 +510,9 @@ func TestConvert_emptyResult(t *testing.T) {
 
 func TestConvert_lgoctxBuiltin(t *testing.T) {
 	result := Convert(`
+	func waitCancel() {
+		<-_ctx.Done()
+	}
 	for {
 		select {
 			case <-_ctx.Done():
