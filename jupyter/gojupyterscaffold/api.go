@@ -4,10 +4,13 @@ import "context"
 
 type RequestHandlers interface {
 	HandleKernelInfo() KernelInfo
+	// HandleExecuteRequest handles execute_request.
+	// writeStream sends stdout/stderr texts and writeDisplayData sends display_data
+	// (or update_display_data if update is true) to the client.
 	HandleExecuteRequest(ctx context.Context,
 		req *ExecuteRequest,
 		writeStream func(name, text string),
-		writeDisplayData func(data *DisplayData)) *ExecuteResult
+		writeDisplayData func(data *DisplayData, update bool)) *ExecuteResult
 	HandleComplete(req *CompleteRequest) *CompleteReply
 	HandleInspect(req *InspectRequest) *InspectReply
 }

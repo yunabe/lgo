@@ -131,10 +131,17 @@ func (s *iopubSocket) sendStream(name, text string, parent *message) {
 	}
 }
 
-func (s *iopubSocket) sendDisplayData(data *DisplayData, parent *message) {
+func (s *iopubSocket) sendDisplayData(data *DisplayData, parent *message, update bool) {
 	var msg message
-	msg.Identity = [][]byte{[]byte("display_data")}
-	msg.Header.MsgType = "display_data"
+	msgType := "display_data"
+	if update {
+		if data.Transient["display_id"] == nil {
+			log.Println("update_display_data with no display_id")
+		}
+		msgType = "update_display_data"
+	}
+	msg.Identity = [][]byte{[]byte(msgType)}
+	msg.Header.MsgType = msgType
 	msg.Header.Version = "5.2"
 	msg.Header.Username = "username"
 	msg.Header.MsgID = genMsgID()

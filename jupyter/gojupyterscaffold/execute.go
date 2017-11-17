@@ -99,8 +99,8 @@ loop:
 			exReq,
 			func(name, text string) {
 				q.iopub.sendStream(name, text, item.req)
-			}, func(data *DisplayData) {
-				q.iopub.sendDisplayData(data, item.req)
+			}, func(data *DisplayData, update bool) {
+				q.iopub.sendDisplayData(data, item.req, update)
 			})
 		res := newMessageWithParent(item.req)
 		res.Header.MsgType = "execute_reply"

@@ -34,7 +34,14 @@ func lgoCtxWithCancel(ctx LgoContext) (LgoContext, context.CancelFunc) {
 }
 
 // DataDisplayer is the interface that wraps Jupyter Notebook display_data protocol.
-// http://jupyter-client.readthedocs.io/en/latest/messaging.html#display-data
+// The list of supported content types are based on Jupyter Notebook implementation[2].
+// Each method receives a content and id. If id is nil, the method does not use id.
+// If id is not nil and it refers an empty string, the method reserves a new display ID and stores it to id.
+// If id is not nil and it reffers a non-empty string, the method overwrites a content with the same ID in Jupyter Notebooks.
+//
+// References:
+// [1] http://jupyter-client.readthedocs.io/en/latest/messaging.html#display-data
+// [2] https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/outputarea.js
 type DataDisplayer interface {
 	JavaScript(s string, id *string)
 	HTML(s string, id *string)

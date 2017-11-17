@@ -32,12 +32,21 @@ func (*handlers) HandleExecuteRequest(
 	ctx context.Context,
 	r *scaffold.ExecuteRequest,
 	stream func(string, string),
-	displayData func(*scaffold.DisplayData)) *scaffold.ExecuteResult {
+	displayData func(data *scaffold.DisplayData, update bool)) *scaffold.ExecuteResult {
 	var i int
 	tick := time.Tick(time.Second)
 	cancelled := false
 loop:
-	for ; i < 10; i++ {
+	for ; i < 5; i++ {
+		displayData(&scaffold.DisplayData{
+			Data: map[string]interface{}{
+				"text/plain": fmt.Sprintf("Loop: i == %d", i),
+			},
+			Transient: map[string]interface{}{
+				"display_id": "hogehoge",
+			},
+			Metadata: map[string]interface{}{},
+		}, i > 0)
 		stream("stdout", fmt.Sprintf("hello --- %d ---", i))
 		stream("stderr", "world")
 		displayData(&scaffold.DisplayData{
@@ -45,7 +54,7 @@ loop:
 				"text/html": "Hello <b>World</b>",
 			},
 			Metadata: map[string]interface{}{},
-		})
+		}, false)
 		select {
 		case <-tick:
 		case <-ctx.Done():

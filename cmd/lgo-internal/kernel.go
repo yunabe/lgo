@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"runtime/debug"
 	"time"
@@ -66,41 +68,63 @@ func pipeOutput(send func(string), file **os.File, done chan<- struct{}) (close 
 	return close, nil
 }
 
-type jupyterDisplayer func(*scaffold.DisplayData)
+type jupyterDisplayer func(data *scaffold.DisplayData, update bool)
 
-// var DisplayDataUnavailable = errors.New("display_data is not available")
-// type emptyDataDisplayer struct{}
-
-func (d jupyterDisplayer) displayString(contentType, content string) {
-	d(&scaffold.DisplayData{
-		Data: map[string]interface{}{
-			contentType: content,
-		},
-	})
+func init() {
+	// Initialize the seed to use it from display.
+	rand.Seed(time.Now().UnixNano())
 }
 
-func (d jupyterDisplayer) displayBytes(contentType string, content []byte) {
-	d(&scaffold.DisplayData{
+func (d jupyterDisplayer) display(data *scaffold.DisplayData, id *string) {
+	update := false
+	if id != nil {
+		if *id == "" {
+			var buf [16]byte
+			rand.Read(buf[:])
+			var enc [32]byte
+			hex.Encode(enc[:], buf[:])
+			*id = "displayid_" + string(enc[:])
+		} else {
+			update = true
+		}
+		if data.Transient == nil {
+			data.Transient = make(map[string]interface{})
+		}
+		data.Transient["display_id"] = *id
+	}
+	d(data, update)
+}
+
+func (d jupyterDisplayer) displayString(contentType, content string, id *string) {
+	d.display(&scaffold.DisplayData{
 		Data: map[string]interface{}{
 			contentType: content,
 		},
-	})
+	}, id)
+}
+
+func (d jupyterDisplayer) displayBytes(contentType string, content []byte, id *string) {
+	d.display(&scaffold.DisplayData{
+		Data: map[string]interface{}{
+			contentType: content,
+		},
+	}, id)
 }
 
 func (d jupyterDisplayer) JavaScript(s string, id *string) {
-	d.displayString("application/javascript", s)
+	d.displayString("application/javascript", s, id)
 }
-func (d jupyterDisplayer) HTML(s string, id *string)     { d.displayString("text/html", s) }
-func (d jupyterDisplayer) Markdown(s string, id *string) { d.displayString("text/markdown", s) }
-func (d jupyterDisplayer) Latex(s string, id *string)    { d.displayString("text/latex", s) }
+func (d jupyterDisplayer) HTML(s string, id *string)     { d.displayString("text/html", s, id) }
+func (d jupyterDisplayer) Markdown(s string, id *string) { d.displayString("text/markdown", s, id) }
+func (d jupyterDisplayer) Latex(s string, id *string)    { d.displayString("text/latex", s, id) }
 func (d jupyterDisplayer) SVG(s string, id *string)      { panic("Not implemented") }
-func (d jupyterDisplayer) PNG(b []byte, id *string)      { d.displayBytes("image/png", b) }
-func (d jupyterDisplayer) JPEG(b []byte, id *string)     { d.displayBytes("image/jpeg", b) }
-func (d jupyterDisplayer) GIF(b []byte, id *string)      { d.displayBytes("image/gif", b) }
-func (d jupyterDisplayer) PDF(b []byte, id *string)      { d.displayBytes("application/pdf", b) }
-func (d jupyterDisplayer) Text(s string, id *string)     { d.displayString("text/plain", s) }
+func (d jupyterDisplayer) PNG(b []byte, id *string)      { d.displayBytes("image/png", b, id) }
+func (d jupyterDisplayer) JPEG(b []byte, id *string)     { d.displayBytes("image/jpeg", b, id) }
+func (d jupyterDisplayer) GIF(b []byte, id *string)      { d.displayBytes("image/gif", b, id) }
+func (d jupyterDisplayer) PDF(b []byte, id *string)      { d.displayBytes("application/pdf", b, id) }
+func (d jupyterDisplayer) Text(s string, id *string)     { d.displayString("text/plain", s, id) }
 
-func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.ExecuteRequest, stream func(string, string), displayData func(*scaffold.DisplayData)) *scaffold.ExecuteResult {
+func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.ExecuteRequest, stream func(string, string), displayData func(data *scaffold.DisplayData, update bool)) *scaffold.ExecuteResult {
 	h.execCount++
 	rDone := make(chan struct{})
 	soClose, err := pipeOutput(func(msg string) {
