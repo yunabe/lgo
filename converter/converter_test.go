@@ -617,6 +617,25 @@ func TestConvert_autoExitCode(t *testing.T) {
 	}
 	for {}
 
+	func chanFunc() (ret int) {
+		c := make(chan int)
+		select {
+		case i := <-c:
+			ret = i
+		}
+		select {
+		case <-c:
+			ret = ret * ret
+		default:
+		}
+		c <- 10
+		ret = ret * <-c * <-c
+		if x, ok := <-c; ok {
+			ret += x
+		}
+		return
+	}
+
 	`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
 	if result.Err != nil {
 		t.Error(result.Err)

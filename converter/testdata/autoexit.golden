@@ -104,6 +104,31 @@ func deferstmt() int {
 	}()
 	return x*y + z
 }
+func chanFunc() (ret int) {
+	pkg0.ExitIfCtxDone()
+	c := make(chan int)
+	select {
+	case i := <-c:
+		ret = i
+	case <-pkg0.GetExecContext().Done():
+		panic(pkg0.Bailout)
+	}
+	select {
+	case <-c:
+		ret = ret * ret
+	default:
+	}
+	select {
+	case c <- 10:
+	case <-pkg0.GetExecContext().Done():
+		panic(pkg0.Bailout)
+	}
+	ret = ret * <-c * <-c
+	if x, ok := <-c; ok {
+		ret += x
+	}
+	return
+}
 func lgo_init() {
 	pkg0.ExitIfCtxDone()
 

@@ -10,6 +10,7 @@ package converter
 
 import (
 	"go/ast"
+	"go/token"
 
 	"github.com/yunabe/lgo/core"
 )
@@ -100,6 +101,33 @@ func injectAutoExitBlock(block *ast.BlockStmt, injectHead bool, defaultFlag bool
 	injectAutoExitToBlockStmtList(&block.List, injectHead, defaultFlag, importCore)
 }
 
+func makeExitIfDoneCommClause(importCore func() string) *ast.CommClause {
+	ctx := &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   &ast.Ident{Name: importCore()},
+			Sel: &ast.Ident{Name: "GetExecContext"},
+		},
+	}
+	done := &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   ctx,
+			Sel: &ast.Ident{Name: "Done"},
+		},
+	}
+	return &ast.CommClause{
+		Comm: &ast.ExprStmt{X: &ast.UnaryExpr{Op: token.ARROW, X: done}},
+		Body: []ast.Stmt{&ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun: ast.NewIdent("panic"),
+				Args: []ast.Expr{&ast.SelectorExpr{
+					X:   &ast.Ident{Name: importCore()},
+					Sel: &ast.Ident{Name: "Bailout"},
+				}},
+			},
+		}},
+	}
+}
+
 func injectAutoExitToBlockStmtList(lst *[]ast.Stmt, injectHead bool, defaultFlag bool, importCore func() string) {
 	newList := make([]ast.Stmt, 0, 2*len(*lst)+1)
 	flag := defaultFlag
@@ -116,6 +144,19 @@ func injectAutoExitToBlockStmtList(lst *[]ast.Stmt, injectHead bool, defaultFlag
 	}
 	for i := 0; i < len(*lst); i++ {
 		stmt := (*lst)[i]
+		if stmt, ok := stmt.(*ast.SendStmt); ok {
+			newList = append(newList, &ast.SelectStmt{
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.CommClause{Comm: stmt},
+						makeExitIfDoneCommClause(importCore),
+					},
+				},
+			})
+			flag = false
+			continue
+		}
+
 		heavy := injectAutoExitToStmt(stmt, importCore, flag)
 		if heavy {
 			if flag {
@@ -157,6 +198,17 @@ func injectAutoExitToStmt(stm ast.Stmt, importCore func() string, prevHeavy bool
 	return heavy
 }
 
+func injectAutoExitToSelectStmt(sel *ast.SelectStmt, importCore func() string) {
+	for _, stmt := range sel.Body.List {
+		stmt := stmt.(*ast.CommClause)
+		if stmt.Comm == nil {
+			// stmt is default case. Do nothing if there is default-case.
+			return
+		}
+	}
+	sel.Body.List = append(sel.Body.List, makeExitIfDoneCommClause(importCore))
+}
+
 func injectAutoExit(node ast.Node, importCore func() string) {
 	if node == nil {
 		return
@@ -177,6 +229,9 @@ func (v *autoExitInjector) Visit(node ast.Node) ast.Visitor {
 	if fn, ok := node.(*ast.FuncLit); ok {
 		injectAutoExitBlock(fn.Body, true, false, v.importCore)
 		return nil
+	}
+	if node, ok := node.(*ast.SelectStmt); ok {
+		injectAutoExitToSelectStmt(node, v.importCore)
 	}
 	return v
 }
