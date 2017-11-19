@@ -123,10 +123,6 @@ func chanFunc() (ret int) {
 	case <-pkg0.GetExecContext().Done():
 		panic(pkg0.Bailout)
 	}
-	ret = ret * <-c * <-c
-	if x, ok := <-c; ok {
-		ret += x
-	}
 	return
 }
 func lgo_init() {

@@ -807,7 +807,7 @@ func prependPrefixToID(indent *ast.Ident, prefix string) {
 	}
 }
 
-func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]byte, *types.Package, *types.Checker, error) {
+func checkFileInPhase2(conf *Config, file *ast.File, fset *token.FileSet) (checker *types.Checker, pkg *types.Package, runctx types.Object, oldImports []*types.PkgName, err error) {
 	var errs []error
 	chConf := &types.Config{
 		Importer: newImporterWithOlds(conf.Olds),
@@ -818,25 +818,37 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 	}
 	pkg, vscope := types.NewPackageWithOldValues(conf.LgoPkgPath, "", conf.Olds)
 	pkg.IsLgo = true
-	var oldImports []*types.PkgName
 	// TODO: Come up with better implementation to resolve pkg <--> vscope circular deps.
 	for _, im := range conf.OldImports {
 		pname := types.NewPkgName(token.NoPos, pkg, im.Name(), im.Imported())
 		vscope.Insert(pname)
 		oldImports = append(oldImports, pname)
 	}
-	runctx := injectLgoContext(pkg, vscope)
+	runctx = injectLgoContext(pkg, vscope)
 	info := &types.Info{
 		Defs:      make(map[*ast.Ident]types.Object),
 		Uses:      make(map[*ast.Ident]types.Object),
 		Scopes:    make(map[ast.Node]*types.Scope),
 		Implicits: make(map[ast.Node]types.Object),
+		Types:     make(map[ast.Expr]types.TypeAndValue),
 	}
-	checker := types.NewChecker(chConf, fset, pkg, info)
+	checker = types.NewChecker(chConf, fset, pkg, info)
 	checker.Files([]*ast.File{file})
 	if errs != nil {
 		// TODO: Return all errors.
-		return nil, nil, nil, errs[0]
+		err = errs[0]
+		return
+	}
+	return
+}
+
+func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]byte, *types.Package, *types.Checker, error) {
+	checker, pkg, runctx, oldImports, err := checkFileInPhase2(conf, file, fset)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if conf.AutoExitCode {
+		checker, pkg, runctx, oldImports = mayWrapRecvOp(conf, file, fset, checker, pkg, runctx, oldImports)
 	}
 
 	for ident, obj := range checker.Defs {

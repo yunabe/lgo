@@ -1,0 +1,105 @@
+package lgo_exec
+
+import pkg1 "lgo/pkg1"
+import pkg2 "github.com/yunabe/lgo/core"
+import pkg0 "lgo/pkg0"
+func f(ch chan int) int {
+	pkg2.ExitIfCtxDone()
+	return recvChan(ch)
+}
+func g(ch <-chan int) int {
+	pkg2.ExitIfCtxDone()
+	return recvChan0(ch)
+}
+func h(ch <-chan int) int {
+	pkg2.ExitIfCtxDone()
+	if i, ok := recvChan1(ch); ok {
+		return i
+	}
+	return -1
+}
+type Person struct {
+	name string
+	Age  int
+}
+func i() {
+	pkg2.ExitIfCtxDone()
+	ch := make(chan Person)
+	pkg2.ExitIfCtxDone()
+	recvChan2(ch)
+}
+func j() {
+	pkg2.ExitIfCtxDone()
+	recvChan3(pkg1.
+		getCh())
+}
+func k() {
+	pkg2.ExitIfCtxDone()
+	ch := make(chan struct {
+		name string
+		age  int
+	})
+	pkg2.ExitIfCtxDone()
+	recvChan4(ch)
+}
+func recvChan(c chan int) (x int) {
+	pkg2.ExitIfCtxDone()
+	select {
+	case x = <-c:
+		return
+	case <-pkg2.GetExecContext().Done():
+		panic(pkg2.Bailout)
+	}
+}
+func recvChan0(c <-chan int) (x int) {
+	pkg2.ExitIfCtxDone()
+	select {
+	case x = <-c:
+		return
+	case <-pkg2.GetExecContext().Done():
+		panic(pkg2.Bailout)
+	}
+}
+func recvChan1(c <-chan int) (x int, ok bool) {
+	pkg2.ExitIfCtxDone()
+	select {
+	case x, ok = <-c:
+		return
+	case <-pkg2.GetExecContext().Done():
+		panic(pkg2.Bailout)
+	}
+}
+func recvChan2(c chan Person) (x Person) {
+	pkg2.ExitIfCtxDone()
+	select {
+	case x = <-c:
+		return
+	case <-pkg2.GetExecContext().Done():
+		panic(pkg2.Bailout)
+	}
+}
+func recvChan3(c chan pkg0.person) (x pkg0.
+	person) {
+	pkg2.ExitIfCtxDone()
+	select {
+	case x = <-c:
+		return
+	case <-pkg2.GetExecContext().Done():
+		panic(pkg2.Bailout)
+	}
+}
+func recvChan4(c chan struct {
+	name string
+	age  int
+}) (x struct {
+	name string
+	age  int
+}) {
+	pkg2.ExitIfCtxDone()
+	select {
+	case x = <-c:
+		return
+	case <-pkg2.GetExecContext().Done():
+		panic(pkg2.Bailout)
+	}
+}

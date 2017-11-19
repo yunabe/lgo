@@ -629,13 +629,8 @@ func TestConvert_autoExitCode(t *testing.T) {
 		default:
 		}
 		c <- 10
-		ret = ret * <-c * <-c
-		if x, ok := <-c; ok {
-			ret += x
-		}
 		return
 	}
-
 	`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
 	if result.Err != nil {
 		t.Error(result.Err)
@@ -667,6 +662,71 @@ func TestConvert_autoExitCodeVarOnly(t *testing.T) {
 		return
 	}
 	checkGolden(t, result.Src, "testdata/autoexit_varonly.golden")
+}
+
+func TestConvert_autoExitRecvOp(t *testing.T) {
+	result := Convert(`
+	type person struct {
+		name string
+	}`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	person := result.Pkg.Scope().Lookup("person")
+	result = Convert(`
+	func getCh() chan person {
+		return make(chan person)
+	}`, &Config{
+		Olds:       []types.Object{person},
+		LgoPkgPath: "lgo/pkg1",
+	})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	getCh := result.Pkg.Scope().Lookup("getCh")
+	result = Convert(`
+	func f(ch chan int) int {
+		return <-ch
+	}
+	func g(ch <-chan int) int {
+		return <-ch
+	}
+	func h(ch <-chan int) int {
+		if i, ok := <-ch; ok {
+			return i
+		}
+		return -1
+	}
+	type Person struct {
+		name string
+		Age int
+	}
+	func i() {
+		ch := make(chan Person)
+		<-ch
+	}
+	func j() {
+		<-getCh()
+	}
+	func k() {
+		ch := make(chan struct{
+			name string
+			age int
+		})
+		<-ch
+	}
+	`, &Config{
+		Olds:         []types.Object{getCh, person},
+		LgoPkgPath:   "lgo/pkg2",
+		AutoExitCode: true,
+	})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/autoexit_recvop.golden")
 }
 
 func TestConvert_registerVars(t *testing.T) {

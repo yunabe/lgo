@@ -9,10 +9,13 @@
 package converter
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
+	"go/types"
 
 	"github.com/yunabe/lgo/core"
+	"github.com/yunabe/lgo/parser"
 )
 
 func containsCall(expr ast.Expr) bool {
@@ -242,4 +245,164 @@ func injectAutoExitToFile(file *ast.File, immg *importManager) {
 		return immg.shortName(corePkg)
 	}
 	injectAutoExit(file, importCore)
+}
+
+// selectCommExprRecorder collects `<-ch` expressions that are used inside select-case clauses.
+// The result of this recorder is used from mayWrapRecvOp so that it does not modify `<-ch` operations in select-case clauses.
+type selectCommExprRecorder struct {
+	m map[ast.Expr]bool
+}
+
+func (v *selectCommExprRecorder) Visit(node ast.Node) ast.Visitor {
+	sel, ok := node.(*ast.SelectStmt)
+	if !ok {
+		return v
+	}
+	for _, cas := range sel.Body.List {
+		comm := cas.(*ast.CommClause).Comm
+		if comm == nil {
+			continue
+		}
+		if assign, ok := comm.(*ast.AssignStmt); ok {
+			for _, expr := range assign.Rhs {
+				v.m[expr] = true
+			}
+		}
+		if expr, ok := comm.(*ast.ExprStmt); ok {
+			v.m[expr.X] = true
+		}
+	}
+	return v
+}
+
+func mayWrapRecvOp(conf *Config, file *ast.File, fset *token.FileSet, checker *types.Checker, pkg *types.Package, runctx types.Object, oldImports []*types.PkgName) (*types.Checker, *types.Package, types.Object, []*types.PkgName) {
+	rec := selectCommExprRecorder{make(map[ast.Expr]bool)}
+	ast.Walk(&rec, file)
+	picker := newNamePicker(checker.Defs)
+	immg := newImportManager(pkg, file, checker)
+	importCore := func() string {
+		corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
+		return immg.shortName(corePkg)
+	}
+
+	var rewritten bool
+	rewriteExpr(file, func(expr ast.Expr) ast.Expr {
+		if rec.m[expr] {
+			return expr
+		}
+		ue, ok := expr.(*ast.UnaryExpr)
+		if !ok || ue.Op != token.ARROW {
+			return expr
+		}
+		rewritten = true
+		wrapperName := picker.NewName("recvChan")
+		decl := makeChanRecvWrapper(ue, wrapperName, immg, importCore, checker)
+		file.Decls = append(file.Decls, decl)
+		return &ast.CallExpr{
+			Fun:  ast.NewIdent(wrapperName),
+			Args: []ast.Expr{ue.X},
+		}
+	})
+	if !rewritten {
+		return checker, pkg, runctx, oldImports
+	}
+	if len(immg.injectedImports) > 0 {
+		var newDecls []ast.Decl
+		for _, im := range immg.injectedImports {
+			newDecls = append(newDecls, im)
+		}
+		newDecls = append(newDecls, file.Decls...)
+		file.Decls = newDecls
+	}
+	var err error
+	checker, pkg, runctx, oldImports, err = checkFileInPhase2(conf, file, fset)
+	if err != nil {
+		panic(fmt.Errorf("No error expected but got: %v", err))
+	}
+	return checker, pkg, runctx, oldImports
+}
+
+// makeChanRecvWrapper makes ast.Node trees of a function declaration like
+// func recvChan1(c chan int) (x int, ok bool) {
+//    select {
+//    case x, ok = <-c:
+//        return
+//    }
+// }
+// The select statement is equivalent to <-c in this phase. The code to interrupt the select statement
+// is injected in the latter phase by autoExitInjector.
+func makeChanRecvWrapper(expr *ast.UnaryExpr, funcName string, immg *importManager, importCore func() string, checker *types.Checker) *ast.FuncDecl {
+	typeExpr := func(typ types.Type) ast.Expr {
+		s := types.TypeString(typ, func(pkg *types.Package) string {
+			return immg.shortName(pkg)
+		})
+		expr, err := parser.ParseExpr(s)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to parse type expr %q: %v", s, err))
+		}
+		return expr
+	}
+
+	var results []*ast.Field
+	typ := checker.Types[expr].Type
+	if tup, ok := typ.(*types.Tuple); ok {
+		results = []*ast.Field{
+			{
+				Names: []*ast.Ident{ast.NewIdent("x")},
+				Type:  typeExpr(tup.At(0).Type()),
+			}, {
+				Names: []*ast.Ident{ast.NewIdent("ok")},
+				Type:  typeExpr(tup.At(1).Type()),
+			},
+		}
+	} else {
+		results = []*ast.Field{
+			{
+				Names: []*ast.Ident{ast.NewIdent("x")},
+				Type:  typeExpr(typ),
+			},
+		}
+	}
+	chType := checker.Types[expr.X].Type.(*types.Chan)
+	var lhs []ast.Expr
+	if len(results) == 1 {
+		lhs = []ast.Expr{ast.NewIdent("x")}
+	} else {
+		lhs = []ast.Expr{ast.NewIdent("x"), ast.NewIdent("ok")}
+	}
+	return &ast.FuncDecl{
+		Name: ast.NewIdent(funcName),
+		Type: &ast.FuncType{
+			Params: &ast.FieldList{
+				List: []*ast.Field{
+					{
+						Names: []*ast.Ident{ast.NewIdent("c")},
+						Type:  typeExpr(chType),
+					},
+				},
+			},
+			Results: &ast.FieldList{List: results},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.SelectStmt{
+					Body: &ast.BlockStmt{
+						List: []ast.Stmt{
+							&ast.CommClause{
+								Comm: &ast.AssignStmt{
+									Tok: token.ASSIGN,
+									Lhs: lhs,
+									Rhs: []ast.Expr{&ast.UnaryExpr{
+										Op: token.ARROW,
+										X:  ast.NewIdent("c"),
+									}},
+								},
+								Body: []ast.Stmt{&ast.ReturnStmt{}},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
