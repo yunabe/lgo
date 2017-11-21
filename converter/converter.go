@@ -58,7 +58,7 @@ func uniqueSortedNames(ids []*ast.Ident) []string {
 
 func parseLesserGoString(src string) (*token.FileSet, *parser.LGOBlock, error) {
 	fset := token.NewFileSet()
-	f, err := parser.ParseLesserGoFile(fset, "", []byte(src), parser.ParseComments)
+	f, err := parser.ParseLesserGoFile(fset, "", src, parser.ParseComments)
 	return fset, f, err
 }
 
@@ -414,7 +414,7 @@ type Config struct {
 }
 
 type ConvertResult struct {
-	Src     []byte
+	Src     string
 	Pkg     *types.Package
 	Checker *types.Checker
 	Imports []*types.PkgName
@@ -842,10 +842,10 @@ func checkFileInPhase2(conf *Config, file *ast.File, fset *token.FileSet) (check
 	return
 }
 
-func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]byte, *types.Package, *types.Checker, error) {
+func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (string, *types.Package, *types.Checker, error) {
 	checker, pkg, runctx, oldImports, err := checkFileInPhase2(conf, file, fset)
 	if err != nil {
-		return nil, nil, nil, err
+		return "", nil, nil, err
 	}
 	if conf.AutoExitCode {
 		checker, pkg, runctx, oldImports = mayWrapRecvOp(conf, file, fset, checker, pkg, runctx, oldImports)
@@ -954,7 +954,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 	}
 	if len(newDels) == 0 {
 		// Nothing is left. Return an empty source.
-		return nil, pkg, checker, nil
+		return "", pkg, checker, nil
 	}
 	file.Decls = newDels
 	for ident, obj := range checker.Uses {
@@ -977,7 +977,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) ([]b
 	}
 	finalSrc, err := printFinalResult(file, fset)
 	if err != nil {
-		return nil, nil, nil, err
+		return "", nil, nil, err
 	}
 	return finalSrc, pkg, checker, nil
 }
@@ -1053,7 +1053,7 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 // printFinalResult converts the lgo final *ast.File into Go code. This function is almost identical to go/format.Node.
 // This custom function is necessary to handle comments in the first line properly.
 // See the results of "TestConvert_comment.* tests.
-func printFinalResult(file *ast.File, fset *token.FileSet) ([]byte, error) {
+func printFinalResult(file *ast.File, fset *token.FileSet) (string, error) {
 	// c.f. func (p *printer) file(src *ast.File) in https://golang.org/src/go/printer/nodes.go
 	var buf bytes.Buffer
 	var err error
@@ -1080,10 +1080,10 @@ func printFinalResult(file *ast.File, fset *token.FileSet) ([]byte, error) {
 		}
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if b := buf.Bytes(); b[len(b)-1] != '\n' {
 		w("\n")
 	}
-	return buf.Bytes(), nil
+	return buf.String(), nil
 }

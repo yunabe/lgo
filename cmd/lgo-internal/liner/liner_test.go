@@ -96,9 +96,9 @@ func TestScan(t *testing.T) {
 	},
 	}
 	for _, test := range tests {
-		var lines [][]byte
+		var lines []string
 		for _, l := range test.lines {
-			lines = append(lines, []byte(l))
+			lines = append(lines, l)
 		}
 		cont, indent := continueLine(lines)
 		if cont != test.expect {

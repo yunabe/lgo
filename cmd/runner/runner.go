@@ -145,7 +145,7 @@ func PrintError(w io.Writer, err error) {
 
 const lgoExportPrefix = "LgoExport_"
 
-func (rn *LgoRunner) Run(ctx core.LgoContext, src []byte) error {
+func (rn *LgoRunner) Run(ctx core.LgoContext, src string) error {
 	rn.execCount++
 	sessDir := "github.com/yunabe/lgo/" + rn.sessID.Marshal()
 	pkgPath := path.Join(sessDir, fmt.Sprintf("exec%d", rn.execCount))
@@ -157,7 +157,7 @@ func (rn *LgoRunner) Run(ctx core.LgoContext, src []byte) error {
 	for _, im := range rn.imports {
 		oldImports = append(oldImports, im)
 	}
-	result := converter.Convert(string(src), &converter.Config{
+	result := converter.Convert(src, &converter.Config{
 		Olds:         olds,
 		OldImports:   oldImports,
 		DefPrefix:    lgoExportPrefix,
@@ -183,7 +183,7 @@ func (rn *LgoRunner) Run(ctx core.LgoContext, src []byte) error {
 	pkgDir := path.Join(rn.gopath, "src", pkgPath)
 	os.MkdirAll(pkgDir, 0766)
 	filePath := path.Join(pkgDir, "src.go")
-	err := ioutil.WriteFile(filePath, result.Src, 0666)
+	err := ioutil.WriteFile(filePath, []byte(result.Src), 0666)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (rn *LgoRunner) Run(ctx core.LgoContext, src []byte) error {
 	return nil
 }
 
-func (rn *LgoRunner) Complete(ctx context.Context, src string, index int) (matches []string, start, end int, err error) {
+func (rn *LgoRunner) Complete(ctx context.Context, src string, index int) (matches []string, start, end int) {
 	var olds []types.Object
 	// TODO: Protect rn.vars and rn.imports with locks to make them goroutine safe.
 	for _, obj := range rn.vars {
@@ -212,7 +212,7 @@ func (rn *LgoRunner) Complete(ctx context.Context, src string, index int) (match
 	for _, im := range rn.imports {
 		oldImports = append(oldImports, im)
 	}
-	matches, start, end = converter.Complete([]byte(src), token.Pos(index+1), &converter.Config{
+	matches, start, end = converter.Complete(src, token.Pos(index+1), &converter.Config{
 		Olds:       olds,
 		OldImports: oldImports,
 		DefPrefix:  lgoExportPrefix,

@@ -17,13 +17,13 @@ func isIdentRune(r rune) bool {
 	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
 }
 
-func identifierAt(src []byte, idx int) (start, end int) {
+func identifierAt(src string, idx int) (start, end int) {
 	if idx > len(src) || idx < 0 {
 		return -1, -1
 	}
 	end = idx
 	for {
-		r, size := utf8.DecodeRune(src[end:])
+		r, size := utf8.DecodeRuneInString(src[end:])
 		if !isIdentRune(r) {
 			break
 		}
@@ -31,7 +31,7 @@ func identifierAt(src []byte, idx int) (start, end int) {
 	}
 	start = idx
 	for {
-		r, size := utf8.DecodeLastRune(src[:start])
+		r, size := utf8.DecodeLastRuneInString(src[:start])
 		if !isIdentRune(r) {
 			break
 		}
@@ -40,14 +40,14 @@ func identifierAt(src []byte, idx int) (start, end int) {
 	if start == end {
 		return -1, -1
 	}
-	if r, _ := utf8.DecodeRune(src[start:]); unicode.IsDigit(r) {
+	if r, _ := utf8.DecodeRuneInString(src[start:]); unicode.IsDigit(r) {
 		// Starts with a digit, which is not an identifier.
 		return -1, -1
 	}
 	return
 }
 
-func findLastDot(src []byte, idx int) (dot, idStart, idEnd int) {
+func findLastDot(src string, idx int) (dot, idStart, idEnd int) {
 	idStart, idEnd = identifierAt(src, idx)
 	var s int
 	if idStart < 0 {
@@ -56,7 +56,7 @@ func findLastDot(src []byte, idx int) (dot, idStart, idEnd int) {
 		s = idStart
 	}
 	for {
-		r, size := utf8.DecodeLastRune(src[:s])
+		r, size := utf8.DecodeLastRuneInString(src[:s])
 		if unicode.IsSpace(r) {
 			s -= size
 			continue
@@ -75,7 +75,7 @@ func findLastDot(src []byte, idx int) (dot, idStart, idEnd int) {
 	return -1, -1, -1
 }
 
-func Complete(src []byte, pos token.Pos, conf *Config) ([]string, int, int) {
+func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
 	if dot, start, end := findLastDot(src, int(pos-1)); dot >= 0 {
 		return completeDot(src, dot, start, end, conf), start, end
 	}
@@ -147,9 +147,9 @@ func isPosInFuncBody(blk *parser.LGOBlock, pos token.Pos) bool {
 	return false
 }
 
-func completeDot(src []byte, dot, start, end int, conf *Config) []string {
+func completeDot(src string, dot, start, end int, conf *Config) []string {
 	// TODO: Consolidate code with Convert and Inspect.
-	fset, blk, _ := parseLesserGoString(string(src))
+	fset, blk, _ := parseLesserGoString(src)
 	var base ast.Expr
 	for _, stmt := range blk.Stmts {
 		v := &findDotBaseVisitor{dotPos: token.Pos(dot + 1)}
@@ -195,7 +195,7 @@ func completeDot(src []byte, dot, start, end int, conf *Config) []string {
 	checker := types.NewChecker(chConf, fset, pkg, &info)
 	checker.Files([]*ast.File{phase1.file})
 
-	orig := strings.ToLower(string(src[start:end]))
+	orig := strings.ToLower(src[start:end])
 
 	if !inFuncBody {
 		return completeFieldAndMethods(base, orig, checker)

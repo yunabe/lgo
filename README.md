@@ -59,6 +59,20 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 <img width="400" height="225" src="doc/inspect.jpg">
 <img width="400" height="225" src="doc/complete.jpg">
 
+## Usage: REPL
+Run `lgo run`
+
+```go
+$ lgo run
+>>> a, b := 3, 4
+>>> func sum(x, y int) int {
+...     return x + y
+...     }
+>>> import "fmt"
+>>> fmt.Sprintf("sum(%d, %d) = %d", a, b, sum(a, b))
+sum(3, 4) = 7
+```
+
 # Tips
 ## Display HTML and images
 To display HTML and images in lgo, use [`_ctx.Display`](https://godoc.org/github.com/yunabe/lgo/core#LgoContext).

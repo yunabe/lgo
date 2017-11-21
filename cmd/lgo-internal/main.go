@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"syscall"
 	"time"
 
@@ -76,7 +77,7 @@ func fromFiles(ctx context.Context, rn *runner.LgoRunner) {
 			log.Printf("Failed to read %s: %v", path, err)
 			return
 		}
-		if err = rn.Run(core.LgoContext{Context: ctx}, src); err != nil {
+		if err = rn.Run(core.LgoContext{Context: ctx}, string(src)); err != nil {
 			log.Println(err)
 			return
 		}
@@ -85,6 +86,26 @@ func fromFiles(ctx context.Context, rn *runner.LgoRunner) {
 
 func fromStdin(ctx context.Context, rn *runner.LgoRunner) {
 	ln := liner.NewLiner()
+	ln.SetCompleter(func(lines []string) []string {
+		if len(lines) == 0 {
+			return nil
+		}
+		src := strings.Join(lines, "\n")
+		last := lines[len(lines)-1]
+		matches, start, end := rn.Complete(ctx, src, len(src))
+		if len(matches) == 0 {
+			return nil
+		}
+		start = start - (len(src) - len(last))
+		end = end - (len(src) - len(last))
+		if start < 0 || start > len(src) || end < 0 || end > len(src) {
+			return nil
+		}
+		for i, m := range matches {
+			matches[i] = last[:start] + m + last[end:]
+		}
+		return matches
+	})
 	sigint := make(chan os.Signal)
 	signal.Notify(sigint, syscall.SIGINT)
 loop:

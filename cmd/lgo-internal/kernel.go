@@ -159,7 +159,7 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 			}
 		}()
 		// Print the err in the notebook
-		if err = h.runner.Run(lgoCtx, []byte(r.Code)); err != nil {
+		if err = h.runner.Run(lgoCtx, r.Code); err != nil {
 			runner.PrintError(os.Stderr, err)
 		}
 	}()
@@ -195,11 +195,7 @@ func runeOffsetToByteOffset(s string, roff int) int {
 func (h *handlers) HandleComplete(req *scaffold.CompleteRequest) *scaffold.CompleteReply {
 	// Not implemented
 	offset := runeOffsetToByteOffset(req.Code, req.CursorPos)
-	matches, start, end, err := h.runner.Complete(context.Background(), req.Code, offset)
-	if err != nil {
-		log.Printf("Failed to complete: %v", err)
-		return nil
-	}
+	matches, start, end := h.runner.Complete(context.Background(), req.Code, offset)
 	if len(matches) == 0 {
 		return nil
 	}

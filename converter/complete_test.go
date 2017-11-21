@@ -74,7 +74,7 @@ func TestIdentifierAt(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotStart, gotEnd := identifierAt([]byte(tt.args.src), tt.args.idx)
+			gotStart, gotEnd := identifierAt(tt.args.src, tt.args.idx)
 			if gotStart != tt.wantStart {
 				t.Errorf("identifierAt() gotStart = %v, want %v", gotStart, tt.wantStart)
 			}
@@ -143,7 +143,7 @@ func Test_findLastDot(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotDot, gotIDStart, gotIDEnd := findLastDot([]byte(tt.args.src), tt.args.idx)
+			gotDot, gotIDStart, gotIDEnd := findLastDot(tt.args.src, tt.args.idx)
 			if gotDot != tt.wantDot {
 				t.Errorf("findLastDot() gotDot = %v, want %v", gotDot, tt.wantDot)
 			}
@@ -328,7 +328,7 @@ var q Q = p
 				t.Error("[cur] not found")
 				return
 			}
-			got, _, _ := Complete([]byte(strings.Replace(src, "[cur]", "", -1)), pos, &Config{})
+			got, _, _ := Complete(strings.Replace(src, "[cur]", "", -1), pos, &Config{})
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected %#v but got %#v", tt.want, got)
 			}

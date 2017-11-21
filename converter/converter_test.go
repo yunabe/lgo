@@ -1,7 +1,6 @@
 package converter
 
 import (
-	"bytes"
 	"flag"
 	"go/ast"
 	"go/importer"
@@ -18,7 +17,7 @@ import (
 	_ "github.com/yunabe/lgo/core"
 )
 
-func calcDiff(b1, b2 []byte) (data []byte, err error) {
+func calcDiff(s1, s2 string) (data []byte, err error) {
 	f1, err := ioutil.TempFile("", "converter_test")
 	if err != nil {
 		return
@@ -33,8 +32,8 @@ func calcDiff(b1, b2 []byte) (data []byte, err error) {
 	defer os.Remove(f2.Name())
 	defer f2.Close()
 
-	f1.Write(b1)
-	f2.Write(b2)
+	f1.WriteString(s1)
+	f2.WriteString(s2)
 
 	data, err = exec.Command("diff", "-u", f1.Name(), f2.Name()).CombinedOutput()
 	if len(data) > 0 {
@@ -47,17 +46,18 @@ func calcDiff(b1, b2 []byte) (data []byte, err error) {
 
 var update = flag.Bool("update", false, "update .golden files")
 
-func checkGolden(t *testing.T, got []byte, golden string) {
-	expected, err := ioutil.ReadFile(golden)
+func checkGolden(t *testing.T, got string, golden string) {
+	b, err := ioutil.ReadFile(golden)
 	if err != nil && !*update {
 		t.Error(err)
 		return
 	}
-	if err == nil && bytes.Equal(got, expected) {
+	expected := string(b)
+	if err == nil && got == expected {
 		return
 	}
 	if *update {
-		if err := ioutil.WriteFile(golden, got, 0666); err != nil {
+		if err := ioutil.WriteFile(golden, []byte(got), 0666); err != nil {
 			t.Error(err)
 		}
 		return
@@ -127,7 +127,7 @@ func TestConvert_simple(t *testing.T) {
 		t.Error(result.Err)
 		return
 	}
-	checkGolden(t, []byte(result.Src), "testdata/simple.golden")
+	checkGolden(t, result.Src, "testdata/simple.golden")
 }
 
 func TestConvert_novar(t *testing.T) {
@@ -140,7 +140,7 @@ func TestConvert_novar(t *testing.T) {
 		t.Error(result.Err)
 		return
 	}
-	checkGolden(t, []byte(result.Src), "testdata/novar.golden")
+	checkGolden(t, result.Src, "testdata/novar.golden")
 }
 
 func TestConvert_errorUndeclared(t *testing.T) {
@@ -183,7 +183,7 @@ func TestConvert_withOld(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	checkGolden(t, []byte(result.Src), "testdata/withold.golden")
+	checkGolden(t, result.Src, "testdata/withold.golden")
 }
 
 func TestConvert_withOldPkgDup(t *testing.T) {
@@ -213,7 +213,7 @@ func TestConvert_withOldPkgDup(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	checkGolden(t, []byte(result.Src), "testdata/withold_pkgdup.golden")
+	checkGolden(t, result.Src, "testdata/withold_pkgdup.golden")
 }
 
 func TestConvert_twoLgo(t *testing.T) {
@@ -494,7 +494,7 @@ func TestConvert_emptyResult(t *testing.T) {
 		t.Error(result.Err)
 		return
 	}
-	if result.Src != nil {
+	if result.Src != "" {
 		t.Errorf("Expected empty but got %q", result.Src)
 	}
 	var imports []string

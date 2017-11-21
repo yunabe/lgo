@@ -1,7 +1,6 @@
 package liner
 
 import (
-	"bytes"
 	"go/scanner"
 	"go/token"
 	"io"
@@ -11,11 +10,11 @@ import (
 	"github.com/yunabe/lgo/parser"
 )
 
-func parseLesserGoString(src []byte) (f *parser.LGOBlock, err error) {
+func parseLesserGoString(src string) (f *parser.LGOBlock, err error) {
 	return parser.ParseLesserGoFile(token.NewFileSet(), "", src, 0)
 }
 
-func isUnexpectedEOF(errs scanner.ErrorList, lines [][]byte) bool {
+func isUnexpectedEOF(errs scanner.ErrorList, lines []string) bool {
 	for _, err := range errs {
 		if err.Msg == "raw string literal not terminated" || err.Msg == "comment not terminated" {
 			return true
@@ -28,11 +27,11 @@ func isUnexpectedEOF(errs scanner.ErrorList, lines [][]byte) bool {
 	return false
 }
 
-func nextIndent(src []byte) int {
+func nextIndent(src string) int {
 	sc := &scanner.Scanner{}
 	fs := token.NewFileSet()
 	var msgs []string
-	sc.Init(fs.AddFile("", -1, len(src)), src, func(_ token.Position, msg string) {
+	sc.Init(fs.AddFile("", -1, len(src)), []byte(src), func(_ token.Position, msg string) {
 		msgs = append(msgs, msg)
 	}, 0)
 	var indent int
@@ -50,8 +49,8 @@ func nextIndent(src []byte) int {
 	return indent
 }
 
-func dropEmptyLine(lines [][]byte) [][]byte {
-	r := make([][]byte, 0, len(lines))
+func dropEmptyLine(lines []string) []string {
+	r := make([]string, 0, len(lines))
 	for _, line := range lines {
 		if len(line) > 0 {
 			r = append(r, line)
@@ -60,9 +59,9 @@ func dropEmptyLine(lines [][]byte) [][]byte {
 	return r
 }
 
-func continueLine(lines [][]byte) (bool, int) {
+func continueLine(lines []string) (bool, int) {
 	lines = dropEmptyLine(lines)
-	src := bytes.Join(lines, []byte("\n"))
+	src := strings.Join(lines, "\n")
 	_, err := parseLesserGoString(src)
 	if err == nil {
 		return false, 0
@@ -75,6 +74,8 @@ func continueLine(lines [][]byte) (bool, int) {
 
 type Liner struct {
 	liner *liner.State
+	// lines keeps the intermediate input to use it from complete
+	lines []string
 }
 
 func NewLiner() *Liner {
@@ -83,12 +84,12 @@ func NewLiner() *Liner {
 	}
 }
 
-func (l *Liner) Next() ([]byte, error) {
-	var lines [][]byte
+func (l *Liner) Next() (string, error) {
+	l.lines = nil
 	var indent int
 	for {
 		var prompt string
-		if lines == nil {
+		if l.lines == nil {
 			prompt = ">>> "
 		} else {
 			prompt = "... "
@@ -100,20 +101,27 @@ func (l *Liner) Next() ([]byte, error) {
 		line, err := l.liner.Prompt(prompt)
 		if err == io.EOF {
 			// Ctrl-D
-			if lines == nil {
-				return nil, io.EOF
+			if l.lines == nil {
+				return "", io.EOF
 			}
-			return nil, nil
+			return "", nil
 		}
-		lines = append(lines, []byte(line))
+		l.lines = append(l.lines, line)
 		var cont bool
-		cont, indent = continueLine(lines)
+		cont, indent = continueLine(l.lines)
 		if !cont {
-			content := bytes.Join(lines, []byte("\n"))
+			content := strings.Join(l.lines, "\n")
 			if len(content) > 0 {
-				l.liner.AppendHistory(string(content))
+				l.liner.AppendHistory(content)
 			}
 			return content, nil
 		}
 	}
+}
+
+// SetCompleter sets the completion function that Liner will call to fetch completion candidates when the user presses tab.
+func (l *Liner) SetCompleter(f func(lines []string) []string) {
+	l.liner.SetCompleter(func(line string) []string {
+		return f(append(l.lines, line))
+	})
 }
