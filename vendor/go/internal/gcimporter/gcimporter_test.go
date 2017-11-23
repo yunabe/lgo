@@ -344,7 +344,7 @@ func TestIssue13898(t *testing.T) {
 	// look for go/types package
 	var goTypesPkg *types.Package
 	for path, pkg := range imports {
-		if path == "go/types" {
+		if path == "github.com/yunabe/lgo/vendor/go/types" {
 			goTypesPkg = pkg
 			break
 		}
@@ -367,7 +367,7 @@ func TestIssue13898(t *testing.T) {
 	}
 
 	// the method must belong to go/types
-	if m.Pkg().Path() != "go/types" {
+	if m.Pkg().Path() != "github.com/yunabe/lgo/vendor/go/types" {
 		t.Fatalf("found %v; want go/types", m.Pkg())
 	}
 }
