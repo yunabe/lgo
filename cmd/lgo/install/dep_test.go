@@ -1,12 +1,11 @@
 package install
 
 import (
-	"strings"
 	"testing"
 )
 
 func TestGetPackagInfoInternal(t *testing.T) {
-	infos, err := getPackagInfoInternal("os", "github.com/yunabe/lgo/converter")
+	infos, err := getPackagInfo("os", "github.com/yunabe/lgo/converter")
 	if err != nil {
 		t.Error(err)
 	}
@@ -30,22 +29,22 @@ func TestGetPackagInfoInternal(t *testing.T) {
 	}
 }
 
-func TestGetPackagInfoInternalVendor(t *testing.T) {
-	// This test confirms "..." in go list command matches to vendor package
-	// despite the rule written in
-	// https: //golang.org/cmd/go/#hdr-Description_of_package_lists
-	infos, err := getPackagInfoInternal("github.com/yunabe/lgo/...")
-	if err != nil {
-		t.Error(err)
+func Test_packageBlackList(t *testing.T) {
+	blacklist := newPackageBlackList("a,b/c/...")
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"a", true},
+		{"b", false},
+		{"b/c", true},
+		{"b/c/d", true},
 	}
-	found := false
-	for _, info := range infos {
-		if strings.HasPrefix(info.ImportPath, "github.com/yunabe/lgo/vendor/") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("No vendor package found under github.com")
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			if got := blacklist.listed(tt.path); got != tt.want {
+				t.Errorf("packageBlackList.listed() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

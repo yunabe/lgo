@@ -1,7 +1,6 @@
 package install
 
 import (
-	"errors"
 	"flag"
 	"log"
 	"os"
@@ -9,7 +8,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/yunabe/lgo/core" // This import is also important to install the core package to GOPATH when lgo-install is installed.
 )
@@ -99,59 +97,7 @@ func Main() {
 	}
 
 	log.Print("Building third-party packages in $GOPATH")
-
-	pkgInfos, err := getAllPackagInfo()
-	if err != nil {
-		log.Fatalf("Failed to get information about packages under $GOPATH: %v", err)
-	}
-	numPkgs := 0
-	if errs := traverseDepsGraph(pkgInfos, func(info *packageInfo, _ map[string]bool) error {
-		numPkgs++
-		return nil
-	}); len(errs) > 0 {
-		errStrs := make([]string, len(errs))
-		for i, err := range errs {
-			errStrs[i] = err.Error()
-		}
-		log.Fatalf("Failed to count the nubmer of packages: %s", strings.Join(errStrs, "\n"))
-	}
-
-	progress := 0
-	if errs := traverseDepsGraph(pkgInfos, func(info *packageInfo, failure map[string]bool) error {
-		progress++
-
-		path := info.ImportPath
-		blist := strings.Split(*packageBlacklists, ",")
-		for _, black := range blist {
-			if strings.HasSuffix(black, "...") && strings.HasPrefix(path, black[:len(black)-len("...")]) || path == black {
-				log.Printf("%q is blacklisted. Ignoring.", path)
-				return nil
-			}
-		}
-		cfail := false
-		for _, im := range info.Imports {
-			if failure[im] {
-				cfail = true
-				break
-			}
-		}
-		if cfail {
-			log.Printf("(%d/%d) Skipping %q due to failures in dependencies", progress, numPkgs, path)
-			return errors.New("Skipped")
-		}
-		log.Printf("(%d/%d) Building %q", progress, numPkgs, path)
-		cmd = exec.Command("go", "install", "-buildmode=shared", "-linkshared", "-pkgdir", pkgDir, path)
-		cmd.Stderr = os.Stderr
-		cmd.Stdout = os.Stdout
-		err = cmd.Run()
-		if err != nil {
-			log.Printf("Failed to build the shared object of %q: %v", path, err)
-		}
-		return err
-	}); len(errs) > 0 {
-		log.Fatal("Failed to build one or more third-party packages. " +
-			"Please check errors in install.log in $LGOPATH and fix problems or blacklist the packages.")
-	}
+	buildThirPartyPackages(pkgDir, newPackageBlackList(*packageBlacklists))
 
 	log.Print("Installing lgo-internal")
 	cmd = exec.Command("go", "build", "-pkgdir", pkgDir, "-linkshared",
