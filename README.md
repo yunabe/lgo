@@ -43,6 +43,8 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 - `go get github.com/yunabe/lgo/cmd/lgo && go get -d github.com/yunabe/lgo/cmd/lgo-internal`
   - This installs `lgo` command into your `$GOPATH/bin`
 - Set `LGOPATH` environment variable
+  - `lgo install` will install binaries into the directory specified with `LGOPATH`.
+  - You can use any empty directory with write permission as `LGOPATH`.
 - Run `lgo install`
   - This installs libraries in your `$GOPATH/src` to `LGOPATH` with specific compiler flags.
   - It takes long time to install libraries if there are a lot libraries in your `GOPATH`.
