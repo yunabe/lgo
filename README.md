@@ -55,6 +55,7 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 - Run `jupyter notebook` command to start Juyputer Notebook and select "Go (lgo)" from New Notebook menu.
 - To show documents of packages, functions and variables in your code, move the cursor to the identifier you want to inspect and press `Shift-Tab`.
 - Press `Tab` to complete code
+- lgo works with [JupyterLab](https://github.com/jupyterlab/jupyterlab). To use lgo from JupyterLab, install JupyterLab and run `jupyter lab`.
 
 <img width="400" height="225" src="doc/inspect.jpg">
 <img width="400" height="225" src="doc/complete.jpg">

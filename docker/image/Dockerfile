@@ -1,7 +1,7 @@
 FROM golang:1.9
 
 RUN apt-get update && apt-get install -y libczmq-dev python-pip && rm -rf /var/lib/apt/lists/*
-RUN pip install --upgrade pip && pip install -U jupyter
+RUN pip install --upgrade pip && pip install -U jupyter jupyterlab && jupyter serverextension enable --py jupyterlab --sys-prefix
 RUN go get github.com/yunabe/lgo/cmd/lgo && go get -d github.com/yunabe/lgo/cmd/lgo-internal
 # Packages used from example notebooks.
 RUN go get github.com/nfnt/resize

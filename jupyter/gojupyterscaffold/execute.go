@@ -9,6 +9,7 @@ package gojupyterscaffold
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 )
@@ -78,6 +79,7 @@ func (q *executeQueue) cancelCurrent() {
 
 // loop executes execute_requests sequentially.
 func (q *executeQueue) loop() {
+	var errStatusError = errors.New("execute status error")
 loop:
 	for {
 		var item *executeQueueItem
@@ -88,28 +90,39 @@ loop:
 		}
 
 		exReq := item.req.Content.(*ExecuteRequest)
-		cur, cancel := context.WithCancel(q.serverCtx)
-		q.currentCtx = &contextAndCancel{cur, cancel}
-		defer func() {
-			cancel()
-			q.currentCtx = nil
-		}()
-		result := q.handlers.HandleExecuteRequest(
-			cur,
-			exReq,
-			func(name, text string) {
-				q.iopub.sendStream(name, text, item.req)
-			}, func(data *DisplayData, update bool) {
-				q.iopub.sendDisplayData(data, item.req, update)
-			})
-		res := newMessageWithParent(item.req)
-		res.Header.MsgType = "execute_reply"
-		res.Content = &result
-		if err := item.sock.pushResult(res); err != nil {
-			log.Printf("Failed to send execute_reply: %v", err)
-		}
-		if result.Status == "error" && exReq.StopOnError {
-			q.abortQueue()
+		err := q.iopub.WithOngoingContext(func(ctx context.Context) error {
+			cur, cancel := context.WithCancel(ctx)
+			q.currentCtx = &contextAndCancel{cur, cancel}
+			defer func() {
+				cancel()
+				q.currentCtx = nil
+			}()
+			result := q.handlers.HandleExecuteRequest(
+				cur,
+				exReq,
+				func(name, text string) {
+					q.iopub.sendStream(name, text, item.req)
+				}, func(data *DisplayData, update bool) {
+					q.iopub.sendDisplayData(data, item.req, update)
+				})
+			res := newMessageWithParent(item.req)
+			res.Header.MsgType = "execute_reply"
+			res.Content = &result
+			if err := item.sock.pushResult(res); err != nil {
+				log.Printf("Failed to send execute_reply: %v", err)
+			}
+			if result.Status == "error" {
+				return errStatusError
+			}
+			return nil
+		}, item.req)
+		if err != nil {
+			if err != errStatusError {
+				log.Printf("Failed to handle a execute_request: %v", err)
+			}
+			if exReq.StopOnError {
+				q.abortQueue()
+			}
 		}
 	}
 }

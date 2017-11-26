@@ -176,7 +176,7 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 	}
 	log.Print("Run ends with OK")
 	return &scaffold.ExecuteResult{
-		// Status:         "ok",
+		Status:         "ok",
 		ExecutionCount: h.execCount,
 	}
 }
