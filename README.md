@@ -1,4 +1,6 @@
 # lgo
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo/master)
+
 Interactive Go REPL and Jupyter Notebook kernel
 
 # Features
@@ -11,8 +13,16 @@ Interactive Go REPL and Jupyter Notebook kernel
 <img src="https://drive.google.com/uc?export=view&id=12_7fHfKfdSy8SNXi0nsWznbsRgix9tGJ" width="400" height="366">
 
 # Jupyter notebook examples
-- [Example notebooks on Jupyter nbviewer](http://nbviewer.jupyter.org/github/yunabe/lgo/tree/master/examples/)
-- [Example notebooks on GitHub](https://github.com/yunabe/lgo/blob/master/examples/basics.ipynb)
+[Example notebooks on Jupyter nbviewer](http://nbviewer.jupyter.org/github/yunabe/lgo/tree/master/examples/)
+
+You can try these notebooks on your browser without installation from [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo/master)
+
+
+# Try lgo from your browser without installation
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo/master)
+
+Thanks to [binder (mybinder.org)](https://mybinder.org/), you try lgo on your browsers with temporary docker containers on binder.
+Open your temporary Jupyter Notebook from the button above and enjoy lgo.
 
 # Quick Start with Docker
 1. Install [Docker](https://docs.docker.com/engine/installation/) and [Docker Compose](https://docs.docker.com/compose/).
@@ -37,7 +47,7 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 - [Install Go 1.8 or Go 1.9](https://golang.org/doc/install)
 - Install [Jupyter Notebook](http://jupyter.readthedocs.io/en/latest/install.html)
 - [Install ZMQ](http://zeromq.org/distro:debian)
-  - e.g. `sudo apt-get install libczmq-dev`
+  - e.g. `sudo apt-get install libzmq3-dev`
 
 ## Install
 - `go get github.com/yunabe/lgo/cmd/lgo && go get -d github.com/yunabe/lgo/cmd/lgo-internal`
