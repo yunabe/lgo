@@ -181,7 +181,9 @@ func (rn *LgoRunner) Run(ctx core.LgoContext, src string) error {
 		return nil
 	}
 	pkgDir := path.Join(rn.gopath, "src", pkgPath)
-	os.MkdirAll(pkgDir, 0766)
+	if err := os.MkdirAll(pkgDir, 0766); err != nil {
+		return err
+	}
 	filePath := path.Join(pkgDir, "src.go")
 	err := ioutil.WriteFile(filePath, []byte(result.Src), 0666)
 	if err != nil {
