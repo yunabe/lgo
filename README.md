@@ -1,5 +1,5 @@
 # lgo
-[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo/master)
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master)
 
 Interactive Go REPL and Jupyter Notebook kernel
 
@@ -15,11 +15,10 @@ Interactive Go REPL and Jupyter Notebook kernel
 # Jupyter notebook examples
 [Example notebooks on Jupyter nbviewer](http://nbviewer.jupyter.org/github/yunabe/lgo/tree/master/examples/)
 
-You can try these notebooks on your browser without installation from [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo/master)
-
+If you want to execute these notebooks, you can try these notebooks on your browser without installation from [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master)
 
 # Try lgo from your browser without installation
-[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo/master)
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master)
 
 Thanks to [binder (mybinder.org)](https://mybinder.org/), you try lgo on your browsers with temporary docker containers on binder.
 Open your temporary Jupyter Notebook from the button above and enjoy lgo.
