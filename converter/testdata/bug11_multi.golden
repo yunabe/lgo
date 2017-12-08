@@ -1,0 +1,15 @@
+package lgo_exec
+
+import (
+	_ "lgo/pkg0"
+	_ "lgo/pkg1"
+)
+import pkg0 "lgo/pkg2"
+func lgo_init() {
+	{
+		pkg0.
+			d.Value()
+		pkg0.
+			p.GetName()
+	}
+}

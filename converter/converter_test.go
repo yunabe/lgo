@@ -886,3 +886,64 @@ func Test_prependPrefixToID(t *testing.T) {
 		}
 	}
 }
+
+func TestConvert_workaroundBug11(t *testing.T) {
+	result := Convert(`
+		type Data struct {
+			value string
+		}
+		func (d Data) Value() string {
+			return d.value
+		}
+		type WithValue interface {
+			Value() string
+		}
+		`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	data := result.Pkg.Scope().Lookup("Data")
+
+	result = Convert(`
+		type Person struct {
+			name string
+		}
+		func (p *Person) GetName() string {
+			return p.name
+		}
+		`, &Config{LgoPkgPath: "lgo/pkg1"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	person := result.Pkg.Scope().Lookup("Person")
+
+	result = Convert(`d := Data{"hello"}
+		p := Person{"Alice"}`, &Config{
+		Olds:       []types.Object{data, person},
+		LgoPkgPath: "lgo/pkg2",
+	})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	d := result.Pkg.Scope().Lookup("d")
+	p := result.Pkg.Scope().Lookup("p")
+
+	result = Convert(`d.Value()`, &Config{Olds: []types.Object{d, p}})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/bug11_single.golden")
+	result = Convert(`{
+		d.Value()
+		p.GetName()
+	}`, &Config{Olds: []types.Object{d, p}})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/bug11_multi.golden")
+}

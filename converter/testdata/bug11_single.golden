@@ -1,0 +1,8 @@
+package lgo_exec
+
+import _ "lgo/pkg0"
+import pkg0 "lgo/pkg2"
+import pkg1 "github.com/yunabe/lgo/core"
+func lgo_init() {
+	pkg1.LgoPrintln(pkg0.d.Value())
+}

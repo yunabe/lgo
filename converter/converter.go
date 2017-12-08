@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"go/types"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/yunabe/lgo/core" // This is also important to install core package to GOPATH when this package is tested with go test.
@@ -842,6 +843,66 @@ func checkFileInPhase2(conf *Config, file *ast.File, fset *token.FileSet) (check
 	return
 }
 
+// workaroundGoBug22998 imports packages that define methods used in the current package indirectly.
+// See https://github.com/yunabe/lgo/issues/11 for details.
+func workaroundGoBug22998(decls []ast.Decl, pkg *types.Package, checker *types.Checker) []ast.Decl {
+	paths := make(map[string]bool)
+	for _, decl := range decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.IMPORT {
+			continue
+		}
+		for _, spec := range gen.Specs {
+			if path, err := strconv.Unquote(spec.(*ast.ImportSpec).Path.Value); err == nil {
+				paths[path] = true
+			}
+		}
+	}
+	var imspecs []ast.Spec
+	for _, obj := range checker.Uses {
+		f, ok := obj.(*types.Func)
+		if !ok {
+			continue
+		}
+		sig, ok := f.Type().(*types.Signature)
+		if !ok {
+			continue
+		}
+		recv := sig.Recv()
+		if recv == nil || recv.Pkg() == pkg {
+			// Ignore functions and methods defined in the same pkg.
+			continue
+		}
+		if types.IsInterface(recv.Type()) {
+			continue
+		}
+		path := recv.Pkg().Path()
+		if !paths[path] {
+			imspecs = append(imspecs, &ast.ImportSpec{
+				Name: ast.NewIdent("_"),
+				Path: &ast.BasicLit{
+					Kind:  token.STRING,
+					Value: fmt.Sprintf("%q", path),
+				},
+			})
+			paths[path] = true
+		}
+	}
+	if len(imspecs) == 0 {
+		return decls
+	}
+	// Note: ast printer does not print multiple import specs unless lparen is set.
+	var lparen token.Pos
+	if len(imspecs) > 1 {
+		lparen = token.Pos(1)
+	}
+	return append([]ast.Decl{&ast.GenDecl{
+		Tok:    token.IMPORT,
+		Specs:  imspecs,
+		Lparen: lparen,
+	}}, decls...)
+}
+
 func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (string, *types.Package, *types.Checker, error) {
 	checker, pkg, runctx, oldImports, err := checkFileInPhase2(conf, file, fset)
 	if err != nil {
@@ -902,16 +963,16 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 	capturePanicInGoRoutine(file, immg, checker.Defs)
 
 	// Import lgo packages implicitly referred code inside functions.
-	var newDels []ast.Decl
+	var newDecls []ast.Decl
 	for _, im := range immg.injectedImports {
-		newDels = append(newDels, im)
+		newDecls = append(newDecls, im)
 	}
 	// Import old imports.
 	for _, im := range oldImports {
 		if !im.Used() {
 			continue
 		}
-		newDels = append(newDels, &ast.GenDecl{
+		newDecls = append(newDecls, &ast.GenDecl{
 			Tok: token.IMPORT,
 			Specs: []ast.Spec{
 				&ast.ImportSpec{
@@ -928,7 +989,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 	for _, decl := range file.Decls {
 		gen, ok := decl.(*ast.GenDecl)
 		if !ok || gen.Tok != token.IMPORT {
-			newDels = append(newDels, decl)
+			newDecls = append(newDecls, decl)
 			continue
 		}
 		var specs []ast.Spec
@@ -949,14 +1010,14 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 		}
 		if specs != nil {
 			gen.Specs = specs
-			newDels = append(newDels, gen)
+			newDecls = append(newDecls, gen)
 		}
 	}
-	if len(newDels) == 0 {
+	if len(newDecls) == 0 {
 		// Nothing is left. Return an empty source.
 		return "", pkg, checker, nil
 	}
-	file.Decls = newDels
+	file.Decls = workaroundGoBug22998(newDecls, pkg, checker)
 	for ident, obj := range checker.Uses {
 		if ast.IsExported(ident.Name) {
 			continue
