@@ -9,9 +9,11 @@ import (
 	"math/rand"
 	"os"
 	"runtime/debug"
+	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/yunabe/lgo/cmd/lgo-internal/liner"
 	"github.com/yunabe/lgo/cmd/runner"
 	"github.com/yunabe/lgo/core"
 	scaffold "github.com/yunabe/lgo/jupyter/gojupyterscaffold"
@@ -174,7 +176,6 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 			ExecutionCount: h.execCount,
 		}
 	}
-	log.Print("Run ends with OK")
 	return &scaffold.ExecuteResult{
 		Status:         "ok",
 		ExecutionCount: h.execCount,
@@ -224,6 +225,20 @@ func (h *handlers) HandleInspect(r *scaffold.InspectRequest) *scaffold.InspectRe
 		Data: map[string]interface{}{
 			"text/plain": doc,
 		},
+	}
+}
+
+func (*handlers) HandleIsComplete(req *scaffold.IsCompleteRequest) *scaffold.IsCompleteReply {
+	cont, indent := liner.ContinueLineString(req.Code)
+	if cont {
+		return &scaffold.IsCompleteReply{
+			Status: "incomplete",
+			// Use 4-spaces instead of "\t" because jupyter console prints "^I" for "\t".
+			Indent: strings.Repeat("    ", indent),
+		}
+	}
+	return &scaffold.IsCompleteReply{
+		Status: "complete",
 	}
 }
 

@@ -322,30 +322,44 @@ func (s *shellSocket) handleMessages() error {
 	case "complete_request":
 		go func() {
 			reply := s.handlers.HandleComplete(msg.Content.(*CompleteRequest))
-			res := newMessageWithParent(&msg)
-			res.Header.MsgType = "complete_reply"
-			if reply != nil {
-				res.Content = reply
-			} else {
-				res.Content = &CompleteReply{
+			if reply == nil {
+				reply = &CompleteReply{
 					Status: "ok",
 				}
 			}
+			if reply.Status == "ok" && reply.Matches == nil {
+				// matches must not be null because `jupyter console` can not accept null for matches as of 2017/12.
+				// https://goo.gl/QRd5rG
+				reply.Matches = make([]string, 0)
+			}
+			res := newMessageWithParent(&msg)
+			res.Header.MsgType = "complete_reply"
+			res.Content = reply
 			s.pushResult(res)
 		}()
 	case "inspect_request":
 		go func() {
 			reply := s.handlers.HandleInspect(msg.Content.(*InspectRequest))
-			res := newMessageWithParent(&msg)
-			res.Header.MsgType = "inspect_reply"
-			if reply != nil {
-				res.Content = reply
-			} else {
-				res.Content = &InspectReply{
+			if reply == nil {
+				reply = &InspectReply{
 					Status: "ok",
 					Found:  false,
 				}
 			}
+			res := newMessageWithParent(&msg)
+			res.Header.MsgType = "inspect_reply"
+			res.Content = reply
+			s.pushResult(res)
+		}()
+	case "is_complete_request":
+		go func() {
+			reply := s.handlers.HandleIsComplete(msg.Content.(*IsCompleteRequest))
+			if reply == nil {
+				reply = &IsCompleteReply{Status: "unknown"}
+			}
+			res := newMessageWithParent(&msg)
+			res.Header.MsgType = "is_complete_reply"
+			res.Content = reply
 			s.pushResult(res)
 		}()
 	default:

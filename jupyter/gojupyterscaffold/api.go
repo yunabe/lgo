@@ -13,6 +13,8 @@ type RequestHandlers interface {
 		writeDisplayData func(data *DisplayData, update bool)) *ExecuteResult
 	HandleComplete(req *CompleteRequest) *CompleteReply
 	HandleInspect(req *InspectRequest) *InspectReply
+	// http://jupyter-client.readthedocs.io/en/latest/messaging.html#code-completeness
+	HandleIsComplete(req *IsCompleteRequest) *IsCompleteReply
 }
 
 type KernelInfo struct {
@@ -109,4 +111,21 @@ type DisplayData struct {
 	Data      map[string]interface{} `json:"data,omitempty"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 	Transient map[string]interface{} `json:"transient,omitempty"`
+}
+
+// http://jupyter-client.readthedocs.io/en/latest/messaging.html#code-completeness
+type IsCompleteRequest struct {
+	// The code entered so far as a multiline string
+	Code string `json:"code"`
+}
+
+// http://jupyter-client.readthedocs.io/en/latest/messaging.html#code-completeness
+type IsCompleteReply struct {
+	// One of 'complete', 'incomplete', 'invalid', 'unknown'
+	Status string `json:"status"`
+	// If status is 'incomplete', indent should contain the characters to use
+	// to indent the next line. This is only a hint: frontends may ignore it
+	// and use their own autoindentation rules. For other statuses, this
+	// field does not exist.
+	Indent string `json:"indent"`
 }

@@ -96,6 +96,10 @@ func (*handlers) HandleInspect(req *scaffold.InspectRequest) *scaffold.InspectRe
 	}
 }
 
+func (*handlers) HandleIsComplete(req *scaffold.IsCompleteRequest) *scaffold.IsCompleteReply {
+	return nil
+}
+
 func main() {
 	flag.Parse()
 	log.Printf("os.Args == %+v", os.Args)

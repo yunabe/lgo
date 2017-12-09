@@ -43,6 +43,8 @@ func newContentForMsgType(header *messageHeader) interface{} {
 		return &CompleteRequest{}
 	case "inspect_request":
 		return &InspectRequest{}
+	case "is_complete_request":
+		return &IsCompleteRequest{}
 	}
 	return nil
 }

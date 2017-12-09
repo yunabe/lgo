@@ -1,6 +1,7 @@
 package liner
 
 import (
+	"go/ast"
 	"go/scanner"
 	"go/token"
 	"io"
@@ -59,17 +60,52 @@ func dropEmptyLine(lines []string) []string {
 	return r
 }
 
-func continueLine(lines []string) (bool, int) {
-	lines = dropEmptyLine(lines)
-	src := strings.Join(lines, "\n")
-	_, err := parseLesserGoString(src)
-	if err == nil {
+func hasTypeOrMethodDecl(b *parser.LGOBlock) bool {
+	for _, s := range b.Stmts {
+		decl, _ := s.(*ast.DeclStmt)
+		if decl == nil {
+			continue
+		}
+		if f, _ := decl.Decl.(*ast.FuncDecl); f != nil && f.Recv != nil {
+			// methods
+			return true
+		}
+		if gen, _ := decl.Decl.(*ast.GenDecl); gen != nil && gen.Tok == token.TYPE {
+			// type decl
+			return true
+		}
+	}
+	return false
+}
+
+// continueForMethods returns true if lines have type or method declaration and the last line is not empty.
+func continueForMethods(b *parser.LGOBlock, lines []string) (bool, int) {
+	if len(lines) == 0 || !hasTypeOrMethodDecl(b) {
+		// Note: len(lines) check exists just for safety.
 		return false, 0
 	}
-	if errs, ok := err.(scanner.ErrorList); !ok || !isUnexpectedEOF(errs, lines) {
+	last := lines[len(lines)-1]
+	if strings.TrimSpace(last) == "" {
 		return false, 0
+	}
+	return true, 0
+}
+
+func continueLine(lines []string) (bool, int) {
+	dropped := dropEmptyLine(lines)
+	src := strings.Join(dropped, "\n")
+	b, err := parseLesserGoString(src)
+	if err == nil {
+		return continueForMethods(b, lines)
+	}
+	if errs, ok := err.(scanner.ErrorList); !ok || !isUnexpectedEOF(errs, dropped) {
+		return continueForMethods(b, lines)
 	}
 	return true, nextIndent(src)
+}
+
+func ContinueLineString(s string) (bool, int) {
+	return continueLine(strings.Split(s, "\n"))
 }
 
 type Liner struct {

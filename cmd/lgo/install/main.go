@@ -2,6 +2,7 @@ package install
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -16,11 +17,22 @@ import (
 // `tee` process is used instead of internal pipes and goroutine so that logs are stored properly
 // when this process is killed with SIGINT or os.Exit.
 func recordStderr(lgopath string) error {
+	logPath := filepath.Join(lgopath, "install.log")
+	if err := func() error {
+		f, err := os.Create(logPath)
+		if err != nil {
+			return err
+		}
+		return f.Close()
+	}(); err != nil {
+		return fmt.Errorf("Failed to create a log file: %v", err)
+	}
+
 	r, w, err := os.Pipe()
 	if err != nil {
 		return err
 	}
-	tee := exec.Command("tee", "--ignore-interrupts", filepath.Join(lgopath, "install.log"))
+	tee := exec.Command("tee", "--ignore-interrupts", logPath)
 	tee.Stdout = os.Stderr
 	tee.Stderr = os.Stderr
 	tee.Stdin = r
@@ -48,7 +60,9 @@ func Main() {
 	if err != nil {
 		log.Fatalf("Failed to get the abspath of LGOPATH: %v", err)
 	}
-
+	if err := os.MkdirAll(root, 0766); err != nil {
+		log.Fatalf("Failed to create a directory on $LGOPATH: %v", err)
+	}
 	// Record logs into install.log and stderr.
 	err = recordStderr(root)
 	if err != nil {

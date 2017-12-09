@@ -13,6 +13,7 @@ Interactive Go REPL and Jupyter Notebook kernel
 <img src="https://drive.google.com/uc?export=view&id=12_7fHfKfdSy8SNXi0nsWznbsRgix9tGJ" width="400" height="366">
 
 # Jupyter notebook examples
+You can view example notebooks of lgo from
 [Example notebooks on Jupyter nbviewer](http://nbviewer.jupyter.org/github/yunabe/lgo/tree/master/examples/)
 
 If you want to execute these notebooks, you can try these notebooks on your browser without installation from [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master)
@@ -20,7 +21,7 @@ If you want to execute these notebooks, you can try these notebooks on your brow
 # Try lgo from your browser without installation
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master)
 
-Thanks to [binder (mybinder.org)](https://mybinder.org/), you try lgo on your browsers with temporary docker containers on binder.
+Thanks to [binder (mybinder.org)](https://mybinder.org/), you can try lgo on your browsers with temporary docker containers on binder.
 Open your temporary Jupyter Notebook from the button above and enjoy lgo.
 
 # Quick Start with Docker
@@ -43,7 +44,7 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 # Install
 ## Prerequisites
 - lgo is supported only on Linux at this moment. On Windows or Mac OS, use virtual machines or dockers.
-- [Install Go 1.8 or Go 1.9](https://golang.org/doc/install)
+- [Install Go 1.9 or Go 1.8](https://golang.org/doc/install)
 - Install [Jupyter Notebook](http://jupyter.readthedocs.io/en/latest/install.html)
 - [Install ZMQ](http://zeromq.org/distro:debian)
   - e.g. `sudo apt-get install libzmq3-dev`
@@ -71,7 +72,26 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 <img width="400" height="225" src="doc/inspect.jpg">
 <img width="400" height="225" src="doc/complete.jpg">
 
-## Usage: REPL
+## Usage: REPL console
+You can use lgo from command line with [Jupyter Console](https://github.com/jupyter/jupyter_console) or build-in REPL mode of lgo
+
+### Jupyter Console (Recommended)
+Run `jupyter console --kernel lgo`
+
+```go
+In [1]: a, b := 3, 4
+
+In [2]: func sum(x, y int) int {
+      :     return x + y
+      :     }
+
+In [3]: import "fmt"
+
+In [4]: fmt.Sprintf("sum(%d, %d) = %d", a, b, sum(a, b))
+sum(3, 4) = 7
+```
+
+### built-in REPL mode
 Run `lgo run`
 
 ```go

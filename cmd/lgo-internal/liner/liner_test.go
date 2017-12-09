@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestScan(t *testing.T) {
+func TestContinueLine(t *testing.T) {
 	tests := []struct {
 		lines  []string
 		expect bool
@@ -93,20 +93,38 @@ func TestScan(t *testing.T) {
 		lines:  []string{"for {", ""},
 		expect: true,
 		indent: 1,
+	}, {
+		lines:  []string{"type s struct {}"},
+		expect: true,
+	}, {
+		lines:  []string{"type s struct {}", ""},
+		expect: false,
+	}, {
+		lines:  []string{"type s struct {}", "   "},
+		expect: false,
+	}, {
+		lines:  []string{"func (s) f(){}"},
+		expect: true,
+	}, {
+		lines:  []string{"func (s) f(){}", ""},
+		expect: false,
 	},
 	}
-	for _, test := range tests {
-		var lines []string
-		for _, l := range test.lines {
-			lines = append(lines, l)
-		}
-		cont, indent := continueLine(lines)
-		if cont != test.expect {
-			t.Errorf("Expected %v but got %v for %#v", test.expect, cont, test.lines)
-			continue
-		}
-		if indent != test.indent {
-			t.Errorf("Expected %d but got %d for %#v", test.indent, indent, test.lines)
-		}
+
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			var lines []string
+			for _, l := range tc.lines {
+				lines = append(lines, l)
+			}
+			cont, indent := continueLine(lines)
+			if cont != tc.expect {
+				t.Errorf("Expected %v but got %v for %#v", tc.expect, cont, tc.lines)
+				return
+			}
+			if indent != tc.indent {
+				t.Errorf("Expected %d but got %d for %#v", tc.indent, indent, tc.lines)
+			}
+		})
 	}
 }
