@@ -1,0 +1,25 @@
+package lgo_exec
+
+import "fmt"
+func lgo_init() {
+
+outer:
+	for i := 0; ; i++ {
+		for j := 0; j < i; j++ {
+			if i > 10 && j > 10 {
+				break outer
+			}
+		}
+	}
+
+	if i+j > 0 {
+		goto ok
+	}
+
+ok:
+	fmt.Println("OK!")
+}
+var (
+	i int
+	j int
+)

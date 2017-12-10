@@ -947,3 +947,43 @@ func TestConvert_workaroundBug11(t *testing.T) {
 	}
 	checkGolden(t, result.Src, "testdata/bug11_multi.golden")
 }
+
+func TestConvert_underScoreInDefine(t *testing.T) {
+	result := Convert(`
+		import "os"
+		_, err := os.Create("/path/file.txt")
+		`, &Config{LgoPkgPath: "lgo/pkg0"})
+	// _ is *os.File, but do not define `var _ *os.File`.
+	// See https://github.com/yunabe/lgo/issues/13
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	checkGolden(t, result.Src, "testdata/underscore_in_define")
+}
+
+func TestConvert_labeledBranch(t *testing.T) {
+	result := Convert(`
+	import "fmt"
+
+	var i, j int
+	outer:
+	for i := 0;; i++ {
+		for j := 0; j < i; j++ {
+			if i > 10 && j > 10 {
+				break outer
+			}
+		}
+	}
+
+	if i + j > 0 {
+		goto ok
+	}
+
+	ok:
+	fmt.Println("OK!")
+	`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	checkGolden(t, result.Src, "testdata/labeled_branch")
+}

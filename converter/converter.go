@@ -240,7 +240,7 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			assign.Tok = token.ASSIGN
 			// Define vars.
 			for _, lhs := range assign.Lhs {
-				if ident, ok := lhs.(*ast.Ident); ok {
+				if ident, ok := lhs.(*ast.Ident); ok && ident.Name != "_" {
 					if vspec := varSpecFromIdent(immg, pkg, ident, checker, false); vspec != nil {
 						varSpecs = append(varSpecs, vspec)
 					}
@@ -858,7 +858,7 @@ func workaroundGoBug22998(decls []ast.Decl, pkg *types.Package, checker *types.C
 			}
 		}
 	}
-	var imspecs []ast.Spec
+	var targets []string
 	for _, obj := range checker.Uses {
 		f, ok := obj.(*types.Func)
 		if !ok {
@@ -878,18 +878,24 @@ func workaroundGoBug22998(decls []ast.Decl, pkg *types.Package, checker *types.C
 		}
 		path := recv.Pkg().Path()
 		if !paths[path] {
-			imspecs = append(imspecs, &ast.ImportSpec{
-				Name: ast.NewIdent("_"),
-				Path: &ast.BasicLit{
-					Kind:  token.STRING,
-					Value: fmt.Sprintf("%q", path),
-				},
-			})
+			targets = append(targets, path)
 			paths[path] = true
 		}
 	}
-	if len(imspecs) == 0 {
+	if len(targets) == 0 {
 		return decls
+	}
+	// Make the order of imports stable to make unit tests stable.
+	sort.Strings(targets)
+	var imspecs []ast.Spec
+	for _, target := range targets {
+		imspecs = append(imspecs, &ast.ImportSpec{
+			Name: ast.NewIdent("_"),
+			Path: &ast.BasicLit{
+				Kind:  token.STRING,
+				Value: fmt.Sprintf("%q", target),
+			},
+		})
 	}
 	// Note: ast printer does not print multiple import specs unless lparen is set.
 	var lparen token.Pos

@@ -38,9 +38,12 @@ func (p *parser) parseLesserGoSrc() *LGOBlock {
 	}
 
 	p.openScope()
+	// We need to open/close a label-scope to support label in the top-level scope.
+	p.openLabelScope()
 	p.pkgScope = p.topScope
 	// rest of package body
 	stmts := p.parseLgoStmtList()
+	p.closeLabelScope()
 	p.closeScope()
 	assert(p.topScope == nil, "unbalanced scopes")
 	assert(p.labelScope == nil, "unbalanced label scopes")

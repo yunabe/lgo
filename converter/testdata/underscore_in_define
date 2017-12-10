@@ -1,0 +1,10 @@
+package lgo_exec
+
+import "os"
+func lgo_init() {
+
+	_, err = os.Create("/path/file.txt")
+}
+var (
+	err error
+)

@@ -10,5 +10,4 @@ func lgo_init() {
 }
 var (
 	f *pkg0.File
-	_ error
 )
