@@ -459,7 +459,7 @@ func InspectIdent(src string, pos token.Pos, conf *Config) (doc, query string) {
 	if doc != "" || q == nil {
 		return
 	}
-	if obj.Pkg().IsLgo {
+	if pkg := obj.Pkg(); pkg != nil && pkg.IsLgo {
 		// rename unexported identifiers.
 		for i, id := range q.ids {
 			if len(id) == 0 {
@@ -573,6 +573,13 @@ type goDocQuery struct {
 	ids []string
 }
 
+func getPkgPath(pkg *types.Package) string {
+	if pkg != nil {
+		return pkg.Path()
+	}
+	return "builtin"
+}
+
 // getDocOrGoDocQuery returns a doc string for obj or a query to retrieve a document with go doc (An argument of go doc command).
 // getDocOrGoDocQuery returns ("", "") if we do not show anything for obj.
 func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDocQuery) {
@@ -592,7 +599,7 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDo
 		sig := fn.Type().(*types.Signature)
 		recv := sig.Recv()
 		if recv == nil {
-			query = &goDocQuery{fn.Pkg().Path(), []string{fn.Name()}}
+			query = &goDocQuery{getPkgPath(fn.Pkg()), []string{fn.Name()}}
 			return
 		}
 		recv.Name()
@@ -603,22 +610,30 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDo
 		case *types.Pointer:
 			recvName = recv.Elem().(*types.Named).Obj().Name()
 		case *types.Interface:
-			scope := fn.Pkg().Scope()
-			for _, name := range scope.Names() {
-				if tyn, _ := scope.Lookup(name).(*types.TypeName); tyn != nil {
-					if named, _ := tyn.Type().(*types.Named); named != nil {
-						if named.Underlying() == recv {
-							recvName = name
-							break
+			recvName = func() string {
+				if fn.Pkg() == nil {
+					return ""
+				}
+				scope := fn.Pkg().Scope()
+				if scope == nil {
+					return ""
+				}
+				for _, name := range scope.Names() {
+					if tyn, _ := scope.Lookup(name).(*types.TypeName); tyn != nil {
+						if named, _ := tyn.Type().(*types.Named); named != nil {
+							if named.Underlying() == recv {
+								return name
+							}
 						}
 					}
 				}
-			}
+				return ""
+			}()
 		default:
 			panic(fmt.Errorf("Unexpected receiver type: %#v", recv))
 		}
 		if recvName != "" {
-			query = &goDocQuery{fn.Pkg().Path(), []string{recvName, fn.Name()}}
+			query = &goDocQuery{getPkgPath(fn.Pkg()), []string{recvName, fn.Name()}}
 		}
 		return
 	}
@@ -632,7 +647,7 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDo
 			doc = "var " + v.Name() + " " + v.Type().String()
 			return
 		}
-		query = &goDocQuery{v.Pkg().Path(), []string{v.Name()}}
+		query = &goDocQuery{getPkgPath(v.Pkg()), []string{v.Name()}}
 		return
 	}
 	if c, _ := obj.(*types.Const); c != nil {
@@ -640,14 +655,19 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDo
 			doc = "const " + c.Name() + " " + c.Type().String()
 			return
 		}
-		query = &goDocQuery{c.Pkg().Path(), []string{c.Name()}}
+		query = &goDocQuery{getPkgPath(c.Pkg()), []string{c.Name()}}
 	}
 	if tyn, _ := obj.(*types.TypeName); tyn != nil {
 		if isLocal {
 			doc = "type " + tyn.Name() + " " + tyn.Type().Underlying().String()
 			return
 		}
-		query = &goDocQuery{tyn.Pkg().Path(), []string{tyn.Name()}}
+		// Note: Use getPkgPath here because tyn.Pkg() is nil for built-in types like float64.
+		query = &goDocQuery{getPkgPath(tyn.Pkg()), []string{tyn.Name()}}
+		return
+	}
+	if bi, _ := obj.(*types.Builtin); bi != nil {
+		query = &goDocQuery{"builtin", []string{bi.Name()}}
 		return
 	}
 	return
@@ -869,14 +889,19 @@ func workaroundGoBug22998(decls []ast.Decl, pkg *types.Package, checker *types.C
 			continue
 		}
 		recv := sig.Recv()
-		if recv == nil || recv.Pkg() == pkg {
-			// Ignore functions and methods defined in the same pkg.
+		if recv == nil {
+			// Ignore functions
+			continue
+		}
+		recvPkg := recv.Pkg()
+		if recvPkg == nil || recvPkg == pkg {
+			// Ignore methods defined in the same pkg (recvPkg == pkg) or builtin (recvPkg == nil).
 			continue
 		}
 		if types.IsInterface(recv.Type()) {
 			continue
 		}
-		path := recv.Pkg().Path()
+		path := recvPkg.Path()
 		if !paths[path] {
 			targets = append(targets, path)
 			paths[path] = true

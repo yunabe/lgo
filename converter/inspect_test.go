@@ -170,9 +170,8 @@ func TestInspect(t *testing.T) {
 			var buf b.Buffer
 			buf.[cur]Len()`,
 			query: "bytes.Buffer.Len",
-		},
-		{
-			name: "interface_method",
+		}, {
+			name: "package_interface_method",
 			src: `
 			import (
 				"bytes"
@@ -183,8 +182,7 @@ func TestInspect(t *testing.T) {
 			var r io.Reader = &buf
 			r.[cur]Read(nil)`,
 			query: "io.Reader.Read",
-		},
-		{
+		}, {
 			name: "type",
 			src: `
 			import (
@@ -303,6 +301,27 @@ func TestInspect(t *testing.T) {
 				_ctx.[cur]Done()
 			}`,
 			query: "context.Context.Done",
+		}, {
+			name: "builtin_error_method",
+			src: `
+			var err error
+			err.Error[cur]
+			`,
+			query: "builtin.error.Error",
+		}, {
+			name: "builtin_func",
+			src: `
+			var s []string
+			s = ap[cur]pend(s, "hello")`,
+			query: "builtin.append",
+		}, {
+			name:  "builtin_panic",
+			src:   `pa[cur]nic("panic")`,
+			query: "builtin.panic",
+		}, {
+			name:  "builtin_type",
+			src:   `var f fl[cur]oat64`,
+			query: "builtin.float64",
 		},
 	}
 	for _, tt := range tests {
