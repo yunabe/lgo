@@ -242,7 +242,15 @@ func (*handlers) HandleIsComplete(req *scaffold.IsCompleteRequest) *scaffold.IsC
 	}
 }
 
+// kernelLogWriter forwards messages to the current os.Stderr, which is change on every execution.
+type kernelLogWriter struct{}
+
+func (kernelLogWriter) Write(p []byte) (n int, err error) {
+	return os.Stderr.Write(p)
+}
+
 func kernelMain(gopath, lgopath string, sessID *runner.SessionID) {
+	log.SetOutput(kernelLogWriter{})
 	server, err := scaffold.NewServer(*connectionFile, &handlers{
 		runner: runner.NewLgoRunner(gopath, lgopath, sessID),
 	})
