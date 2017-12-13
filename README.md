@@ -1,12 +1,12 @@
 # lgo
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master)
 
-Interactive Go REPL and Jupyter Notebook kernel
+Interactive Go (golang) REPL and Jupyter Notebook kernel
 
 # Features
-- Write and execute Go interactively.
+- Write and execute Go (golang) interactively.
 - Jupyter Notebook integration
-- Full Go language spec support
+- Full Go (golang) language spec support
 - Code completion and inspection in Jupyter Notebooks
 - Currently, lgo is only supported on Linux. But you can use lgo on Mac and Windows with virtual machines or Docker.
 
