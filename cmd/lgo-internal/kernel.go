@@ -13,6 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/golang/glog"
 	"github.com/yunabe/lgo/cmd/lgo-internal/liner"
 	"github.com/yunabe/lgo/cmd/runner"
 	"github.com/yunabe/lgo/core"
@@ -53,13 +54,13 @@ func pipeOutput(send func(string), file **os.File, done chan<- struct{}) (close 
 			}
 			if err != nil {
 				if err != io.EOF {
-					log.Println(err)
+					glog.Error(err)
 				}
 				break
 			}
 		}
 		if err := r.Close(); err != nil {
-			log.Printf("Failed to close a reader pipe: %v", err)
+			glog.Errorf("Failed to close a reader pipe: %v", err)
 		}
 		done <- struct{}{}
 	}()
@@ -133,7 +134,7 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 		stream("stdout", msg)
 	}, &os.Stdout, rDone)
 	if err != nil {
-		log.Printf("Failed to open stdout pipe: %v", err)
+		glog.Errorf("Failed to open stdout pipe: %v", err)
 		return &scaffold.ExecuteResult{
 			Status:         "error",
 			ExecutionCount: h.execCount,
@@ -143,7 +144,7 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 		stream("stderr", msg)
 	}, &os.Stderr, rDone)
 	if err != nil {
-		log.Printf("Failed to open stderr pipe: %v", err)
+		glog.Errorf("Failed to open stderr pipe: %v", err)
 		return &scaffold.ExecuteResult{
 			Status:         "error",
 			ExecutionCount: h.execCount,
@@ -212,7 +213,7 @@ func (h *handlers) HandleComplete(req *scaffold.CompleteRequest) *scaffold.Compl
 func (h *handlers) HandleInspect(r *scaffold.InspectRequest) *scaffold.InspectReply {
 	doc, err := h.runner.Inspect(context.Background(), r.Code, runeOffsetToByteOffset(r.Code, r.CursorPos))
 	if err != nil {
-		log.Printf("Failed to inspect: %v", err)
+		glog.Errorf("Failed to inspect: %v", err)
 		return nil
 	}
 	if doc == "" {
@@ -254,7 +255,7 @@ func kernelMain(gopath, lgopath string, sessID *runner.SessionID) {
 		runner: runner.NewLgoRunner(gopath, lgopath, sessID),
 	})
 	if err != nil {
-		log.Fatalf("Failed to create a server: %v", err)
+		glog.Fatalf("Failed to create a server: %v", err)
 	}
 
 	// Set up cleanup
@@ -263,12 +264,12 @@ func kernelMain(gopath, lgopath string, sessID *runner.SessionID) {
 	go func() {
 		// clean-up goroutine
 		<-startCleanup
-		log.Printf("Clean the session: %s", sessID.Marshal())
+		glog.Infof("Clean the session: %s", sessID.Marshal())
 		runner.CleanSession(gopath, lgopath, sessID)
 		close(endCleanup)
 		// Terminate the process if the main routine does not return in 1 sec after the ctx is cancelled.
 		time.Sleep(500 * time.Millisecond)
-		os.Exit(0)
+		exitProcess()
 	}()
 	go func() {
 		// start clean-up 500ms after the ctx is cancelled.
@@ -281,5 +282,5 @@ func kernelMain(gopath, lgopath string, sessID *runner.SessionID) {
 	server.Loop()
 	startCleanup <- struct{}{}
 	<-endCleanup
-	os.Exit(0)
+	exitProcess()
 }

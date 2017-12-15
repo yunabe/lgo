@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/yunabe/lgo/cmd/lgo-internal/liner"
 	"github.com/yunabe/lgo/cmd/runner"
 	"github.com/yunabe/lgo/core"
@@ -47,6 +47,11 @@ func createRunContext(parent context.Context, sigint <-chan os.Signal) (ctx cont
 	return
 }
 
+func exitProcess() {
+	glog.Flush()
+	os.Exit(0)
+}
+
 func createProcessContext(withSigint bool) context.Context {
 	// Use SIGUSR1 to notify the death of the parent process.
 	unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(syscall.SIGUSR1), 0, 0, 0)
@@ -61,9 +66,9 @@ func createProcessContext(withSigint bool) context.Context {
 	go func() {
 		sig := <-sigch
 		if sig == syscall.SIGUSR1 {
-			log.Print("The parent process died. Cancelling the internal process")
+			glog.Info("The parent process died. Cancelling the internal process")
 		} else {
-			log.Printf("Received a signal (%s). Cancelling the internal process", sig)
+			glog.Infof("Received a signal (%s). Cancelling the internal process", sig)
 		}
 		cancel()
 	}()
@@ -74,11 +79,11 @@ func fromFiles(ctx context.Context, rn *runner.LgoRunner) {
 	for _, path := range flag.Args() {
 		src, err := ioutil.ReadFile(path)
 		if err != nil {
-			log.Printf("Failed to read %s: %v", path, err)
+			glog.Errorf("Failed to read %s: %v", path, err)
 			return
 		}
 		if err = rn.Run(core.LgoContext{Context: ctx}, string(src)); err != nil {
-			log.Println(err)
+			glog.Error(err)
 			return
 		}
 	}
@@ -118,7 +123,7 @@ loop:
 		src, err := ln.Next()
 		if err != nil {
 			if err != io.EOF {
-				log.Printf("liner returned non-EOF error unexpectedly: %v", err)
+				glog.Errorf("liner returned non-EOF error unexpectedly: %v", err)
 			}
 			return
 		}
@@ -140,7 +145,7 @@ loop:
 				}
 			}()
 			if err := rn.Run(core.LgoContext{Context: runCtx}, src); err != nil {
-				log.Println(err)
+				glog.Error(err)
 			}
 		}()
 	}
@@ -149,40 +154,40 @@ loop:
 func main() {
 	flag.Parse()
 	if *sessIDFlag == "" {
-		log.Fatal("--sess_id is not set")
+		glog.Fatal("--sess_id is not set")
 	}
 	var sessID runner.SessionID
 	if err := sessID.Unmarshal(*sessIDFlag); err != nil {
-		log.Fatalf("--sess_id=%s is invalid: %v", *sessIDFlag, err)
+		glog.Fatalf("--sess_id=%s is invalid: %v", *sessIDFlag, err)
 	}
 	if *subcomandFlag == "" {
-		log.Fatal("--subcomand is not set")
+		glog.Fatal("--subcomand is not set")
 	}
 
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
-		log.Fatal("GOPATH is not set")
+		glog.Fatal("GOPATH is not set")
 	}
 	lgopath := os.Getenv("LGOPATH")
 	if lgopath == "" {
-		log.Fatal("LGOPATH is empty")
+		glog.Fatal("LGOPATH is empty")
 	}
 	lgopath, err := filepath.Abs(lgopath)
 	if err != nil {
-		log.Fatalf("Failed to get the absolute path of LGOPATH: %v", err)
+		glog.Fatalf("Failed to get the absolute path of LGOPATH: %v", err)
 	}
 	core.RegisterLgoPrinter(&printer{})
 
 	if *subcomandFlag == "kernel" {
 		kernelMain(gopath, lgopath, &sessID)
-		os.Exit(0)
+		exitProcess()
 	}
 
 	rn := runner.NewLgoRunner(gopath, lgopath, &sessID)
 	defer func() {
 		err := rn.CleanUp()
 		if err != nil {
-			log.Printf("Clean up failure: %v", err)
+			glog.Errorf("Clean up failure: %v", err)
 		}
 	}()
 
@@ -206,12 +211,12 @@ func main() {
 	go func() {
 		// clean-up goroutine
 		<-startCleanup
-		log.Printf("Clean the session: %s", sessID.Marshal())
+		glog.Infof("Clean the session: %s", sessID.Marshal())
 		runner.CleanSession(gopath, lgopath, &sessID)
 		close(endCleanup)
 		// Terminate the process if the main routine does not return in 1 sec after the ctx is cancelled.
 		time.Sleep(500 * time.Millisecond)
-		os.Exit(0)
+		exitProcess()
 	}()
 	go func() {
 		// start clean-up 500ms after the ctx is cancelled.
@@ -226,5 +231,5 @@ func main() {
 	}
 	startCleanup <- struct{}{}
 	<-endCleanup
-	os.Exit(0)
+	exitProcess()
 }

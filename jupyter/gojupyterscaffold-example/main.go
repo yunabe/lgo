@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"html"
-	"log"
 	"os"
 	"time"
 
@@ -102,12 +101,13 @@ func (*handlers) HandleIsComplete(req *scaffold.IsCompleteRequest) *scaffold.IsC
 
 func main() {
 	flag.Parse()
-	log.Printf("os.Args == %+v", os.Args)
-	log.Printf("connection_file == %s", *connectionFile)
+	fmt.Printf("os.Args == %+v\n", os.Args)
+	fmt.Printf("connection_file == %s\n", *connectionFile)
 
 	server, err := scaffold.NewServer(*connectionFile, &handlers{})
 	if err != nil {
-		log.Fatalf("Failed to create a server: %v", err)
+		fmt.Fprintf(os.Stderr, "Failed to create a server: %v\n", err)
+		os.Exit(1)
 	}
 	server.Loop()
 }
