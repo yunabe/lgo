@@ -258,29 +258,9 @@ func kernelMain(gopath, lgopath string, sessID *runner.SessionID) {
 		glog.Fatalf("Failed to create a server: %v", err)
 	}
 
-	// Set up cleanup
-	startCleanup := make(chan struct{})
-	endCleanup := make(chan struct{})
-	go func() {
-		// clean-up goroutine
-		<-startCleanup
-		glog.Infof("Clean the session: %s", sessID.Marshal())
-		runner.CleanSession(gopath, lgopath, sessID)
-		close(endCleanup)
-		// Terminate the process if the main routine does not return in 1 sec after the ctx is cancelled.
-		time.Sleep(500 * time.Millisecond)
-		exitProcess()
-	}()
-	go func() {
-		// start clean-up 500ms after the ctx is cancelled.
-		<-server.Context().Done()
-		time.Sleep(500 * time.Millisecond)
-		startCleanup <- struct{}{}
-	}()
-
 	// Start the server loop
 	server.Loop()
-	startCleanup <- struct{}{}
-	<-endCleanup
-	exitProcess()
+	// clean-up
+	glog.Infof("Clean the session: %s", sessID.Marshal())
+	runner.CleanSession(gopath, lgopath, sessID)
 }

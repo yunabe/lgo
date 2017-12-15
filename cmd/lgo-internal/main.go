@@ -12,7 +12,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/golang/glog"
 	"github.com/yunabe/lgo/cmd/lgo-internal/liner"
@@ -48,6 +47,8 @@ func createRunContext(parent context.Context, sigint <-chan os.Signal) (ctx cont
 }
 
 func exitProcess() {
+	// Programs should call Flush before exiting to guarantee all log output is written.
+	// https://godoc.org/github.com/golang/glog
 	glog.Flush()
 	os.Exit(0)
 }
@@ -184,52 +185,17 @@ func main() {
 	}
 
 	rn := runner.NewLgoRunner(gopath, lgopath, &sessID)
-	defer func() {
-		err := rn.CleanUp()
-		if err != nil {
-			glog.Errorf("Clean up failure: %v", err)
-		}
-	}()
-
-	sigch := make(chan os.Signal, 1)
-	signal.Notify(sigch, syscall.SIGINT)
-	interrupt := make(chan struct{})
-	go func() {
-		// This goroutine leaks!
-		for {
-			<-sigch
-			interrupt <- struct{}{}
-		}
-	}()
-
 	useFiles := len(flag.Args()) > 0
 	ctx := createProcessContext(useFiles)
 
-	// Set up cleanup
-	startCleanup := make(chan struct{})
-	endCleanup := make(chan struct{})
-	go func() {
-		// clean-up goroutine
-		<-startCleanup
-		glog.Infof("Clean the session: %s", sessID.Marshal())
-		runner.CleanSession(gopath, lgopath, &sessID)
-		close(endCleanup)
-		// Terminate the process if the main routine does not return in 1 sec after the ctx is cancelled.
-		time.Sleep(500 * time.Millisecond)
-		exitProcess()
-	}()
-	go func() {
-		// start clean-up 500ms after the ctx is cancelled.
-		<-ctx.Done()
-		time.Sleep(500 * time.Millisecond)
-		startCleanup <- struct{}{}
-	}()
 	if len(flag.Args()) > 0 {
 		fromFiles(ctx, rn)
 	} else {
 		fromStdin(ctx, rn)
 	}
-	startCleanup <- struct{}{}
-	<-endCleanup
+
+	// clean-up
+	glog.Infof("Clean the session: %s", sessID.Marshal())
+	runner.CleanSession(gopath, lgopath, &sessID)
 	exitProcess()
 }

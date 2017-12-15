@@ -315,6 +315,7 @@ func (s *shellSocket) handleMessages() error {
 			glog.Errorf("Failed to handle kernel_info_request: %v", err)
 		}
 	case "shutdown_request":
+		glog.Info("received shutdown_request.")
 		s.cancelCtx()
 		// TODO: Send shutdown_reply
 	case "execute_request":

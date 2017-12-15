@@ -237,7 +237,3 @@ func (rn *LgoRunner) Inspect(ctx context.Context, src string, index int) (string
 	}
 	return strings.Replace(buf.String(), lgoExportPrefix, "", -1), nil
 }
-
-func (rn *LgoRunner) CleanUp() error {
-	return CleanSession(rn.gopath, rn.lgopath, rn.sessID)
-}
