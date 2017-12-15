@@ -8,12 +8,17 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // SelfPkgPath is the package path of this package
 const SelfPkgPath = "github.com/yunabe/lgo/core"
+
+// How long time we should wait for goroutines after a cancel operation.
+var execWaitDuration = time.Second
 
 // isRunning indicates lgo execution is running.
 // This var is used to improve the performance of ExitIfCtxDone.
@@ -55,12 +60,51 @@ type DataDisplayer interface {
 	Text(s string, id *string)
 }
 
+type resultCounter struct {
+	active uint
+	fail   uint
+	cancel uint
+	mu     sync.Mutex
+}
+
+func (c *resultCounter) add() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.active++
+}
+
+// recordResult records a result of a routine based on the value of recover().
+func (c *resultCounter) recordResult(r interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.active--
+	if c.active < 0 {
+		panic("active is negative")
+	}
+	if r == nil {
+		return
+	}
+	if r == Bailout {
+		c.cancel += 1
+		return
+	}
+	fmt.Fprintf(os.Stderr, "panic: %v\n\n%s", r, debug.Stack())
+	c.fail += 1
+}
+
+func (c *resultCounter) recordResultInDefer() {
+	c.recordResult(recover())
+}
+
 type ExecutionState struct {
-	Context     LgoContext
-	cancelCtx   func()
-	canceled    bool
-	cancelMu    sync.Mutex
-	goroutineWg sync.WaitGroup
+	Context   LgoContext
+	cancelCtx func()
+	canceled  bool
+	cancelMu  sync.Mutex
+
+	mainCounter resultCounter
+	subCounter  resultCounter
+	routineWait sync.WaitGroup
 }
 
 func newExecutionState(parent LgoContext) *ExecutionState {
@@ -89,6 +133,58 @@ func (e *ExecutionState) cancel() {
 		atomic.StoreUint32(&isRunning, 0)
 	}
 	e.cancelCtx()
+}
+
+func (e *ExecutionState) counterMessage() string {
+	var msgs []string
+	func() {
+		e.mainCounter.mu.Lock()
+		defer e.mainCounter.mu.Unlock()
+		if e.mainCounter.fail > 0 {
+			msgs = append(msgs, "main routine failed")
+		} else if e.mainCounter.cancel > 0 {
+			msgs = append(msgs, "main routine canceled")
+		} else if e.mainCounter.active > 0 {
+			msgs = append(msgs, "main routine is hanging")
+		}
+	}()
+	func() {
+		e.subCounter.mu.Lock()
+		defer e.subCounter.mu.Unlock()
+		if c := e.subCounter.fail; c > 1 {
+			msgs = append(msgs, fmt.Sprintf("%d goroutines failed", c))
+		} else if c == 1 {
+			msgs = append(msgs, fmt.Sprintf("%d goroutine failed", c))
+		}
+		if c := e.subCounter.cancel; c > 1 {
+			msgs = append(msgs, fmt.Sprintf("%d goroutines canceled", c))
+		} else if c == 1 {
+			msgs = append(msgs, fmt.Sprintf("%d goroutine canceled", c))
+		}
+		if c := e.subCounter.active; c > 1 {
+			msgs = append(msgs, fmt.Sprintf("%d goroutines are hanging", c))
+		} else if c == 1 {
+			msgs = append(msgs, fmt.Sprintf("%d goroutine is hanging", c))
+		}
+	}()
+	return strings.Join(msgs, ", ")
+}
+
+func (e *ExecutionState) waitRoutines() {
+	ctx, done := context.WithCancel(context.Background())
+	go func() {
+		e.routineWait.Wait()
+		done()
+		// Don't forget to cancel the current ctx to avoid ctx leak.
+		e.cancel()
+	}()
+	go func() {
+		<-e.Context.Done()
+		time.Sleep(execWaitDuration)
+		done()
+	}()
+	// Wait done is called.
+	<-ctx.Done()
 }
 
 // execState should be protected with a mutex because
@@ -126,16 +222,40 @@ func setExecState(e *ExecutionState) {
 	execState = e
 }
 
-func StartExec(parent LgoContext) {
-	atomic.StoreUint32(&isRunning, 1)
-	setExecState(newExecutionState(parent))
+func resetExecState(e *ExecutionState) {
+	execStateMu.Lock()
+	defer execStateMu.Unlock()
+	if execState == e {
+		execState = nil
+	}
 }
 
-func FinalizeExec() {
-	e := getExecState()
-	e.cancel()
-	e.goroutineWg.Wait()
-	setExecState(nil)
+func ExecLgoEntryPoint(parent LgoContext, main func()) error {
+	return finalizeExec(startExec(parent, main))
+}
+
+func startExec(parent LgoContext, main func()) *ExecutionState {
+	atomic.StoreUint32(&isRunning, 1)
+	e := newExecutionState(parent)
+	setExecState(e)
+
+	e.routineWait.Add(1)
+	e.mainCounter.add()
+	go func() {
+		defer e.routineWait.Done()
+		defer e.mainCounter.recordResultInDefer()
+		main()
+	}()
+	return e
+}
+
+func finalizeExec(e *ExecutionState) error {
+	e.waitRoutines()
+	resetExecState(e)
+	if msg := e.counterMessage(); msg != "" {
+		return errors.New(msg)
+	}
+	return nil
 }
 
 func InitGoroutine() (e *ExecutionState) {
@@ -143,23 +263,17 @@ func InitGoroutine() (e *ExecutionState) {
 	if e == nil {
 		return
 	}
-	e.goroutineWg.Add(1)
+	e.routineWait.Add(1)
+	e.subCounter.add()
 	return
 }
 
 func FinalizeGoroutine(e *ExecutionState) {
 	r := recover()
-	if r != nil && r != Bailout {
-		fmt.Fprintf(os.Stderr, "panic: %v\n\n%s", r, debug.Stack())
-	}
-	cur := getExecState()
-	if cur != e || cur == nil {
-		// The goroutine did not terminated properly in the previous run.
-		return
-	}
-	e.goroutineWg.Done()
+	e.subCounter.recordResult(r)
+	e.routineWait.Done()
 	if r != nil {
-		// paniced
+		// paniced, cancel other routines.
 		e.cancel()
 	}
 	return

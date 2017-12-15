@@ -3,7 +3,6 @@ package runner
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"go/scanner"
 	"go/token"
@@ -26,23 +25,7 @@ import (
 */
 import "C"
 
-func loadShared(ctx core.LgoContext, buildPkgDir, pkgPath string) (canceled bool) {
-	core.StartExec(ctx)
-	defer func() {
-		core.FinalizeExec()
-		r := recover()
-		if r == core.Bailout {
-			canceled = true
-		} else if r != nil {
-			// repanic
-			panic(r)
-		}
-	}()
-	loadSharedInternal(buildPkgDir, pkgPath)
-	return
-}
-
-func loadSharedInternal(buildPkgDir, pkgPath string) {
+func loadShared(ctx core.LgoContext, buildPkgDir, pkgPath string) error {
 	// This code is implemented based on https://golang.org/src/plugin/plugin_dlopen.go
 	sofile := "lib" + strings.Replace(pkgPath, "/", "-", -1) + ".so"
 	handle := C.dlopen(C.CString(path.Join(buildPkgDir, sofile)), C.RTLD_NOW|C.RTLD_GLOBAL)
@@ -67,15 +50,19 @@ func loadSharedInternal(buildPkgDir, pkgPath string) {
 	}
 
 	lgoInitFuncPC := C.dlsym(handle, C.CString(pkgPath+".lgo_init"))
-	if lgoInitFuncPC != nil {
+	if lgoInitFuncPC == nil {
 		// lgo_init does not exist if lgo source includes only declarations.
-		lgoInitFuncP := &lgoInitFuncPC
-		lgoInitFunc := *(*func())(unsafe.Pointer(&lgoInitFuncP))
-		lgoInitFunc()
+		return nil
 	}
+	lgoInitFuncP := &lgoInitFuncPC
+	lgoInitFunc := *(*func())(unsafe.Pointer(&lgoInitFuncP))
+	return core.ExecLgoEntryPoint(ctx, func() {
+		lgoInitFunc()
+	})
 }
 
-var ErrInterrupted = errors.New("interrupted")
+func loadSharedInternal(buildPkgDir, pkgPath string) {
+}
 
 type LgoRunner struct {
 	gopath    string
@@ -197,11 +184,7 @@ func (rn *LgoRunner) Run(ctx core.LgoContext, src string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to build a shared library of %s: %v", pkgPath, err)
 	}
-	cancelled := loadShared(ctx, buildPkgDir, pkgPath)
-	if cancelled {
-		return ErrInterrupted
-	}
-	return nil
+	return loadShared(ctx, buildPkgDir, pkgPath)
 }
 
 func (rn *LgoRunner) Complete(ctx context.Context, src string, index int) (matches []string, start, end int) {

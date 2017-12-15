@@ -170,7 +170,6 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 	<-rDone
 	<-rDone
 	if err != nil {
-		log.Printf("Failed to execute code: %v", err)
 		return &scaffold.ExecuteResult{
 			Status:         "error",
 			ExecutionCount: h.execCount,
