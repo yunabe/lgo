@@ -106,6 +106,10 @@ sum(3, 4) = 7
 ```
 
 # Tips
+## go get and lgo
+The packages you want to use in lgo must be prebuilt and installed into `$LGOPATH` by `lgo install` command.
+Please make sure to run `lgo install` after you fetch a new package with `go get` command.
+
 ## Display HTML and images
 To display HTML and images in lgo, use [`_ctx.Display`](https://godoc.org/github.com/yunabe/lgo/core#LgoContext).
 See [the example of `_ctx.Display`](http://nbviewer.jupyter.org/github/yunabe/lgo/blob/master/examples/basics.ipynb#Display) in an example notebook
