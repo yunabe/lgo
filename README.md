@@ -14,7 +14,7 @@ Interactive Go (golang) REPL and Jupyter Notebook kernel
 
 # Jupyter notebook examples
 You can view example notebooks of lgo from
-[Example notebooks on Jupyter nbviewer](http://nbviewer.jupyter.org/github/yunabe/lgo/tree/master/examples/)
+[Example notebooks on Jupyter nbviewer](https://nbviewer.jupyter.org/github/yunabe/lgo/blob/master/examples/basics.ipynb)
 
 If you want to execute these notebooks, you can try these notebooks on your browser without installation from [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master?filepath=basics.ipynb)
 
@@ -142,9 +142,56 @@ b = nil
 ```
 
 # Comparisons with similar projects
-TBD
+## gore
+[gore](https://github.com/motemen/gore), which was released in Feb 2015, is the most famous REPL implementation for Go as of Dec 2017. gore is a great tool to try out very short code snippets in REPL style.
 
-# Trouble shootings
+But gore does not fit to data science or heavy data processing at all.
+gore executes your inputs by concatinating all of your inputs,
+wrapping it with `main` function and running it with `go run` command.
+This means every time you input your code, gore executes all your inputs from the begining.
+For example, if you are writing something like
+
+1. Loads a very large CSV file as an input. It takes 1 min to load.
+2. Analyzes the loaded data. For example, calculates max, min, avg, etc..
+
+gore always runs the first step when you calculate something and you need to wait for 1 min every time.
+This behavior is not acceptable for real data science works. Also, gore is not good at tyring code with side effects (even fmt.Println) because code snippets with side effects are executed repeatedly and repeatedly.
+lgo chose a totally different approach to execute Go code interactively and does not have the same shortcoming.
+
+## gophernotes
+||lgo|gophernotes|
+|:---|:---|:---|
+|Backend|gc (go compiler)|An official interpreter|
+|Full Go Language Specs|:white_check_mark:||
+|100% Go compatible|:white_check_mark:||
+|Type Safety|:white_check_mark:||
+|Overhead|500ms|1ms|
+|Performance|Fast|Slow|
+|[Cancellation](https://github.com/yunabe/lgo#cancellation)|:white_check_mark:||
+|Windows, Mac|Use Docker or VM|Native|
+|Image/HTML outputs|:white_check_mark:||
+|Code completion|:white_check_mark:||
+|Code inspection|:white_check_mark:||
+
+[gophernotes](https://github.com/gopherdata/gophernotes) is the first Jupyter kernel for Go, released in Jan 2016.
+Before [Sep 2017](https://github.com/gopherdata/gophernotes/commit/69792d8af799d6905e2c576164d1a189ac021784#diff-04c6e90faac2675aa89e2176d2eec7d8), it used the same technology gore uses to evaluate Go code. This means it did not fit to heavy data processing or data analysis at all.
+
+From Sep 2017, gophernotes switched from `go run` approach to [gomacro](https://github.com/cosmos72/gomacro), one of unofficial golang interpreters by [cosmos72](https://github.com/cosmos72). This solved the problem gore has. Now, gophernotes is a great tool for data science in Go.
+
+The shortcomings of using an unofficial interpreter are
+- It does not support all Go language features. Especially, it does not support one of the most important Go feature, `interface`.
+  As of go1.10, it is hard to support `interface` in an interpreter written in Go because of the lack of API in `reflect` package.
+- Interpreters are generally slow.
+- Type unsafe. At least, gomacro is not statically typed.
+- Unofficial interpreters are not well-tested compared to the official gc (go compiler) tools.
+
+The advantages of this approach are
+- The overhead of code execution is small because it does not compile and link code.
+- Windows/Mac native support. lgo works only in Linux and you need to use VMs  or Docker to run it on Windows/Mac.
+
+These disadvantage and advantages are not something inevitable in interperters. But they are not easy to solve under the limited development resource.
+
+Also, lgo kernel supports more rich features in Jupyter Notebook as of Dec 2017, including code completion, code inspection and images/HTML/JavaScript output supports.
 
 ## old export format no longer supported
 ### Symptom
