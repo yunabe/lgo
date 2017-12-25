@@ -25,7 +25,7 @@ WORKDIR ${HOME}
 RUN go get github.com/yunabe/lgo/cmd/lgo && go get -d github.com/yunabe/lgo/cmd/lgo-internal
 
 # Install packages used from example notebooks.
-RUN go get github.com/nfnt/resize
+RUN go get -u github.com/nfnt/resize gonum.org/v1/gonum/... gonum.org/v1/plot/...
 
 # Install lgo
 RUN lgo install
