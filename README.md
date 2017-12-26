@@ -158,20 +158,22 @@ gore always runs the first step when you calculate something and you need to wai
 This behavior is not acceptable for real data science works. Also, gore is not good at tyring code with side effects (even fmt.Println) because code snippets with side effects are executed repeatedly and repeatedly.
 lgo chose a totally different approach to execute Go code interactively and does not have the same shortcoming.
 
+gore is a CLI tool and it does not support Jupyter Notebook.
+
 ## gophernotes
 ||lgo|gophernotes|
 |:---|:---|:---|
-|Backend|gc (go compiler)|An official interpreter|
-|Full Go Language Specs|:white_check_mark:||
-|100% Go compatible|:white_check_mark:||
-|Type Safety|:white_check_mark:||
-|Overhead|500ms|1ms|
+|Backend|gc (go compiler)|An unofficial interpreter|
+|Full Go Language Specs|:heavy_check_mark:||
+|100% Go compatible|:heavy_check_mark:||
+|Type Safety|:heavy_check_mark:||
 |Performance|Fast|Slow|
-|[Cancellation](https://github.com/yunabe/lgo#cancellation)|:white_check_mark:||
+|Overhead|500ms|1ms|
+|[Cancellation](https://github.com/yunabe/lgo/blob/master/README.md#cancellation)|:heavy_check_mark:||
+|Code completion|:heavy_check_mark:||
+|Code inspection|:heavy_check_mark:||
+|Output [HTML and images](https://github.com/yunabe/lgo/blob/master/README.md#display-html-and-images)|:heavy_check_mark:||
 |Windows, Mac|Use Docker or VM|Native|
-|Image/HTML outputs|:white_check_mark:||
-|Code completion|:white_check_mark:||
-|Code inspection|:white_check_mark:||
 
 [gophernotes](https://github.com/gopherdata/gophernotes) is the first Jupyter kernel for Go, released in Jan 2016.
 Before [Sep 2017](https://github.com/gopherdata/gophernotes/commit/69792d8af799d6905e2c576164d1a189ac021784#diff-04c6e90faac2675aa89e2176d2eec7d8), it used the same technology gore uses to evaluate Go code. This means it did not fit to heavy data processing or data analysis at all.
