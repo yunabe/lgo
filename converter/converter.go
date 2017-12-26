@@ -584,6 +584,7 @@ func getPkgPath(pkg *types.Package) string {
 
 var onceDocSupportField sync.Once
 var docSupportField bool
+
 func isFieldDocSupported() bool {
 	// go doc of go1.8 does not support struct fields.
 	onceDocSupportField.Do(func() {
@@ -653,7 +654,8 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDo
 	if v, _ := obj.(*types.Var); v != nil {
 		if v.IsField() {
 			if isLocal {
-				// Not implemented
+				// TODO: Print the information of the struct.
+				doc = "var " + v.Name() + " " + v.Type().String()
 				return
 			}
 			scope := v.Pkg().Scope()

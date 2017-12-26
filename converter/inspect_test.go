@@ -191,8 +191,7 @@ func TestInspect(t *testing.T) {
 
 			f := flag.F[cur]lag{}`,
 			query: "flag.Flag",
-		},
-		{
+		}, {
 			name: "field",
 			src: `
 			import (
@@ -201,8 +200,18 @@ func TestInspect(t *testing.T) {
 
 			f := flag.Flag{[cur]Name: "myflag"}`,
 			query: "flag.Flag.Name",
-		},
-		{
+		}, {
+			name: "local_field_def",
+			src:  "type st struct { [cur]val int }",
+			doc:  "var val int",
+		}, {
+			name: "local_field_ref",
+			src: `
+			type st struct { val int }
+			var x st
+			x.[cur]val`,
+			doc: "var val int",
+		}, {
 			name: "invalid_type",
 			src: `
 			var x foobar
