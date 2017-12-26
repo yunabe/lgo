@@ -165,19 +165,18 @@ gore is a CLI tool and it does not support Jupyter Notebook.
 |:---|:---|:---|
 |Backend|gc (go compiler)|An unofficial interpreter|
 |Full Go Language Specs|:heavy_check_mark:||
-|100% Go compatible|:heavy_check_mark:||
+|100% gc compatible|:heavy_check_mark:||
 |Type Safety|:heavy_check_mark:||
 |Performance|Fast|Slow|
 |Overhead|500ms|1ms|
 |[Cancellation](https://github.com/yunabe/lgo/blob/master/README.md#cancellation)|:heavy_check_mark:||
 |Code completion|:heavy_check_mark:||
 |Code inspection|:heavy_check_mark:||
-|Output [HTML and images](https://github.com/yunabe/lgo/blob/master/README.md#display-html-and-images)|:heavy_check_mark:||
+|[Display HTML and images](https://github.com/yunabe/lgo/blob/master/README.md#display-html-and-images)|:heavy_check_mark:||
 |Windows, Mac|Use Docker or VM|Native|
 
 [gophernotes](https://github.com/gopherdata/gophernotes) is the first Jupyter kernel for Go, released in Jan 2016.
 Before [Sep 2017](https://github.com/gopherdata/gophernotes/commit/69792d8af799d6905e2c576164d1a189ac021784#diff-04c6e90faac2675aa89e2176d2eec7d8), it used the same technology gore uses to evaluate Go code. This means it did not fit to heavy data processing or data analysis at all.
-
 From Sep 2017, gophernotes switched from `go run` approach to [gomacro](https://github.com/cosmos72/gomacro), one of unofficial golang interpreters by [cosmos72](https://github.com/cosmos72). This solved the problem gore has. Now, gophernotes is a great tool for data science in Go.
 
 The shortcomings of using an unofficial interpreter are

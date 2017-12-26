@@ -200,6 +200,7 @@ func TestInspect(t *testing.T) {
 			)
 
 			f := flag.Flag{[cur]Name: "myflag"}`,
+			query: "flag.Flag.Name",
 		},
 		{
 			name: "invalid_type",
@@ -382,5 +383,33 @@ func TestInspectWithOlds(t *testing.T) {
 		if query != tt.query {
 			t.Errorf("Expected %q for %s but got %q", tt.query, tt.id, query)
 		}
+	}
+}
+
+func TestInspectUnnamedStruct(t *testing.T) {
+	result := Convert(`
+	func Gen() struct{Val int} {
+		return struct{Val int}{123}
+	}
+	`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	olds := []types.Object{
+		result.Pkg.Scope().Lookup("Gen"),
+	}
+	src := `Gen().Val`
+	doc, query := InspectIdent(src, token.Pos(strings.Index(src, "Val")+1), &Config{
+		Olds:      olds,
+		DefPrefix: "Def_",
+		// RefPrefix is not used.
+		RefPrefix: "Ref_",
+	})
+	if doc != "" {
+		t.Errorf("Unexpected non-empty doc: %q", doc)
+	}
+	if query != "" {
+		t.Errorf("Unexpected non-empty query: %q", query)
 	}
 }

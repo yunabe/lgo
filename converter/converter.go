@@ -8,9 +8,11 @@ import (
 	"go/importer"
 	"go/token"
 	"go/types"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/yunabe/lgo/core" // This is also important to install core package to GOPATH when this package is tested with go test.
 	"github.com/yunabe/lgo/parser"
@@ -580,6 +582,18 @@ func getPkgPath(pkg *types.Package) string {
 	return "builtin"
 }
 
+var onceDocSupportField sync.Once
+var docSupportField bool
+func isFieldDocSupported() bool {
+	// go doc of go1.8 does not support struct fields.
+	onceDocSupportField.Do(func() {
+		if err := exec.Command("go", "doc", "flag", "Flag.Name").Run(); err == nil {
+			docSupportField = true
+		}
+	})
+	return docSupportField
+}
+
 // getDocOrGoDocQuery returns a doc string for obj or a query to retrieve a document with go doc (An argument of go doc command).
 // getDocOrGoDocQuery returns ("", "") if we do not show anything for obj.
 func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDocQuery) {
@@ -602,7 +616,6 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDo
 			query = &goDocQuery{getPkgPath(fn.Pkg()), []string{fn.Name()}}
 			return
 		}
-		recv.Name()
 		var recvName string
 		switch recv := recv.Type().(type) {
 		case *types.Named:
@@ -639,7 +652,33 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDo
 	}
 	if v, _ := obj.(*types.Var); v != nil {
 		if v.IsField() {
-			// Not implemented
+			if isLocal {
+				// Not implemented
+				return
+			}
+			scope := v.Pkg().Scope()
+			for _, name := range scope.Names() {
+				tyn, ok := scope.Lookup(name).(*types.TypeName)
+				if !ok {
+					continue
+				}
+				st, ok := tyn.Type().Underlying().(*types.Struct)
+				if !ok {
+					continue
+				}
+				for i := 0; i < st.NumFields(); i++ {
+					f := st.Field(i)
+					if f == v {
+						if isFieldDocSupported() {
+							query = &goDocQuery{getPkgPath(v.Pkg()), []string{tyn.Name(), v.Name()}}
+						} else {
+							query = &goDocQuery{getPkgPath(v.Pkg()), []string{tyn.Name()}}
+						}
+						return
+					}
+				}
+			}
+			// Not found. This path is tested in TestInspectUnnamedStruct.
 			return
 		}
 		if isLocal {
