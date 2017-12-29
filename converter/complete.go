@@ -12,6 +12,22 @@ import (
 	"github.com/yunabe/lgo/parser"
 )
 
+type completeTarget interface {
+	completeTarget()
+}
+type selectExprTarget struct {
+	base       ast.Expr
+	src        string
+	start, end int
+}
+type idExprTarget struct {
+	src        string
+	start, end int
+}
+
+func (*selectExprTarget) completeTarget() {}
+func (*idExprTarget) completeTarget()     {}
+
 // isIdentRune returns whether a rune can be a part of an identifier.
 func isIdentRune(r rune) bool {
 	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
@@ -73,13 +89,6 @@ func findLastDot(src string, idx int) (dot, idStart, idEnd int) {
 		return s, idStart, idEnd
 	}
 	return -1, -1, -1
-}
-
-func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
-	if dot, start, end := findLastDot(src, int(pos-1)); dot >= 0 {
-		return completeDot(src, dot, start, end, conf), start, end
-	}
-	return nil, 0, 0
 }
 
 // findDotBaseVisitor finds 'x' of 'x.y' or 'x.(type)' expression and stores it to base.
@@ -147,23 +156,146 @@ func isPosInFuncBody(blk *parser.LGOBlock, pos token.Pos) bool {
 	return false
 }
 
-func completeDot(src string, dot, start, end int, conf *Config) []string {
-	// TODO: Consolidate code with Convert and Inspect.
-	fset, blk, _ := parseLesserGoString(src)
-	var base ast.Expr
-	for _, stmt := range blk.Stmts {
-		v := &findDotBaseVisitor{dotPos: token.Pos(dot + 1)}
-		ast.Walk(v, stmt)
-		if v.base != nil {
-			base = v.base
-			break
-		}
-	}
-	if base == nil {
+type findCompleteTargetVisitor struct {
+	skip ast.Node
+	pos  token.Pos
+	src  string
+
+	target completeTarget
+	found  bool
+}
+
+func (v *findCompleteTargetVisitor) Visit(n ast.Node) ast.Visitor {
+	if v.found || n == nil {
 		return nil
 	}
-	// Whether dot is inside a function body.
-	inFuncBody := isPosInFuncBody(blk, token.Pos(dot+1))
+	if n == v.skip {
+		return v
+	}
+	if v.pos < n.Pos() || n.End() <= v.pos {
+		return nil
+	}
+	v.found = true
+	cv := findCompleteTargetVisitor{skip: n, pos: v.pos, src: v.src}
+	cv.Visit(n)
+	if cv.found {
+		v.target = cv.target
+		return nil
+	}
+	if _, ok := n.(*ast.Comment); ok {
+		return nil
+	}
+	if start, end := identifierAt(v.src, int(v.pos-1)); start != -1 {
+		v.target = &idExprTarget{src: v.src, start: start, end: end}
+		return nil
+	}
+	v.target = &idExprTarget{src: v.src, start: int(v.pos - 1), end: int(v.pos - 1)}
+	return nil
+}
+
+func findNearestScope(s *types.Scope, pos token.Pos) *types.Scope {
+	valid := s.Pos() != token.NoPos && s.End() != token.NoPos
+	if valid && (pos < s.Pos() || s.End() <= pos) {
+		return nil
+	}
+	for i := 0; i < s.NumChildren(); i++ {
+		if c := findNearestScope(s.Child(i), pos); c != nil {
+			return c
+		}
+	}
+	if valid {
+		return s
+	}
+	return nil
+}
+
+func completeTargetFromAST(src string, pos token.Pos, blk *parser.LGOBlock) completeTarget {
+	if dot, start, end := findLastDot(src, int(pos-1)); dot >= 0 {
+		var base ast.Expr
+		for _, stmt := range blk.Stmts {
+			v := &findDotBaseVisitor{dotPos: token.Pos(dot + 1)}
+			ast.Walk(v, stmt)
+			if v.base != nil {
+				base = v.base
+				break
+			}
+		}
+		if base == nil {
+			return nil
+		}
+		return &selectExprTarget{
+			base:  base,
+			src:   src,
+			start: start,
+			end:   end,
+		}
+	}
+	for _, stmt := range blk.Stmts {
+		v := findCompleteTargetVisitor{pos: pos, src: src}
+		v.Visit(stmt)
+		if v.found {
+			return v.target
+		}
+	}
+	if start, end := identifierAt(src, int(pos-1)); start != -1 {
+		return &idExprTarget{src: src, start: start, end: end}
+	}
+	return &idExprTarget{src: src, start: int(pos - 1), end: int(pos - 1)}
+}
+
+func listCandidatesFromScope(s *types.Scope, pos token.Pos, prefix string, candidates map[string]bool) {
+	if s == nil {
+		return
+	}
+	for _, name := range s.Names() {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		if _, obj := s.LookupParent(name, pos); obj != nil {
+			candidates[name] = true
+		}
+	}
+	listCandidatesFromScope(s.Parent(), pos, prefix, candidates)
+}
+
+func completeWithChecker(target completeTarget, checker *types.Checker, pkg *types.Package, initFunc *ast.FuncDecl) ([]string, int, int) {
+	if target, _ := target.(*selectExprTarget); target != nil {
+		match := completeFieldAndMethods(target.base, target.src[target.start:target.end], checker)
+		return match, target.start, target.end
+	}
+	if target, _ := target.(*idExprTarget); target != nil {
+		pos := token.Pos(target.start + 1)
+		n := findNearestScope(pkg.Scope(), pos)
+		if n == nil && initFunc != nil {
+			n = checker.Scopes[initFunc.Type]
+		}
+		prefix := target.src[target.start:target.end]
+
+		candidates := make(map[string]bool)
+		listCandidatesFromScope(n, pos, prefix, candidates)
+		if len(candidates) == 0 {
+			return nil, 0, 0
+		}
+		l := make([]string, 0, len(candidates))
+		for key := range candidates {
+			l = append(l, key)
+		}
+		sort.Strings(l)
+		return l, target.start, target.end
+	}
+	return nil, 0, 0
+}
+
+func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
+	fset, blk, _ := parseLesserGoString(src)
+
+	target := completeTargetFromAST(src, pos, blk)
+	if target == nil {
+		return nil, 0, 0
+	}
+
+	// Whether pos is inside a function body.
+	inFuncBody := isPosInFuncBody(blk, pos)
 
 	phase1 := convertToPhase1(blk)
 	makePkg := func() *types.Package {
@@ -195,10 +327,8 @@ func completeDot(src string, dot, start, end int, conf *Config) []string {
 	checker := types.NewChecker(chConf, fset, pkg, &info)
 	checker.Files([]*ast.File{phase1.file})
 
-	orig := strings.ToLower(src[start:end])
-
 	if !inFuncBody {
-		return completeFieldAndMethods(base, orig, checker)
+		return completeWithChecker(target, checker, pkg, phase1.initFunc)
 	}
 
 	convertToPhase2(phase1, pkg, checker, conf)
@@ -223,8 +353,7 @@ func completeDot(src string, dot, start, end int, conf *Config) []string {
 		pkg := makePkg()
 		checker := types.NewChecker(chConf, fset, pkg, &info)
 		checker.Files([]*ast.File{phase1.file})
-
-		return completeFieldAndMethods(base, orig, checker)
+		return completeWithChecker(target, checker, pkg, nil)
 	}
 }
 

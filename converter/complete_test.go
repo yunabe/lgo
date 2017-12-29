@@ -222,9 +222,12 @@ var p *T2    // with p != nil and (*p).T0 != nil
 var q Q = p
 `
 	tests := []struct {
-		name string
-		src  string
-		want []string
+		name        string
+		src         string
+		want        []string
+		ignoreWant  bool
+		wantInclude []string
+		wantExclude []string
 	}{
 		{
 			name: "package",
@@ -251,6 +254,16 @@ var q Q = p
 			)
 			var buf bytes.Buffer
 			buf.un[cur]`,
+			want: []string{"UnreadByte", "UnreadRune"},
+		}, {
+			name: "value_in_func",
+			src: `
+			import (
+				"bytes"
+			)
+			func f() {
+				var buf bytes.Buffer
+				buf.un[cur]`,
 			want: []string{"UnreadByte", "UnreadRune"},
 		}, {
 			name: "pointer",
@@ -317,6 +330,46 @@ var q Q = p
 				_ctx.val[cur]
 			}`,
 			want: []string{"Value"},
+		}, {
+			name: "id_simple",
+			src: `
+			abc := 100
+			xyz := "hello"
+			[cur]
+			zzz := 1.23
+			`,
+			ignoreWant:  true,
+			wantInclude: []string{"abc", "xyz"},
+			wantExclude: []string{"zzz"},
+		}, {
+			name: "id_partial",
+			src: `
+			abc := 100
+			xyz := "hello"
+			xy[cur]
+			`,
+			want: []string{"xyz"},
+		}, {
+			name: "id_in_func",
+			src: `
+			func fn() {
+				abc := 100
+				xyz := "hello"
+				[cur]
+				zzz := 1.23
+			}`,
+			ignoreWant:  true,
+			wantInclude: []string{"abc", "xyz", "int64"},
+			wantExclude: []string{"zzz"},
+		}, {
+			name: "id_partial_in_func",
+			src: `
+			func fn() {
+				abc := 100
+				xyz := "hello"
+				xy[cur]
+			}`,
+			want: []string{"xyz"},
 		},
 	}
 	for _, tt := range tests {
@@ -329,8 +382,25 @@ var q Q = p
 				return
 			}
 			got, _, _ := Complete(strings.Replace(src, "[cur]", "", -1), pos, &Config{})
-			if !reflect.DeepEqual(got, tt.want) {
+			if !tt.ignoreWant && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Expected %#v but got %#v", tt.want, got)
+			}
+			if len(tt.wantInclude) == 0 && len(tt.wantExclude) == 0 {
+				return
+			}
+			m := make(map[string]bool)
+			for _, c := range got {
+				m[c] = true
+			}
+			for _, c := range tt.wantInclude {
+				if !m[c] {
+					t.Errorf("%q is not suggested; Got %#v", c, got)
+				}
+			}
+			for _, c := range tt.wantExclude {
+				if m[c] {
+					t.Errorf("%q is suggested unexpectedly", c)
+				}
 			}
 		})
 	}
