@@ -269,7 +269,7 @@ func completeWithChecker(target completeTarget, checker *types.Checker, pkg *typ
 		if n == nil && initFunc != nil {
 			n = checker.Scopes[initFunc.Type]
 		}
-		prefix := target.src[target.start:target.end]
+		prefix := strings.ToLower(target.src[target.start:target.end])
 
 		candidates := make(map[string]bool)
 		listCandidatesFromScope(n, pos, prefix, candidates)
@@ -280,13 +280,32 @@ func completeWithChecker(target completeTarget, checker *types.Checker, pkg *typ
 		for key := range candidates {
 			l = append(l, key)
 		}
-		sort.Strings(l)
 		return l, target.start, target.end
 	}
 	return nil, 0, 0
 }
 
 func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
+	match, start, end := complete(src, pos, conf)
+	// case-insensitive sort
+	sort.Slice(match, func(i, j int) bool {
+		c := strings.Compare(strings.ToLower(match[i]), strings.ToLower(match[j]))
+		if c < 0 {
+			return true
+		}
+		if c > 0 {
+			return false
+		}
+		c = strings.Compare(match[i], match[j])
+		if c < 0 {
+			return true
+		}
+		return false
+	})
+	return match, start, end
+}
+
+func complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
 	fset, blk, _ := parseLesserGoString(src)
 
 	target := completeTargetFromAST(src, pos, blk)
@@ -448,6 +467,7 @@ func scanFieldOrMethod(typ types.Type, add func(string)) {
 }
 
 func completeFieldAndMethods(expr ast.Expr, orig string, checker *types.Checker) []string {
+	orig = strings.ToLower(orig)
 	suggests := make(map[string]bool)
 	add := func(s string) {
 		if strings.HasPrefix(strings.ToLower(s), orig) {
@@ -485,6 +505,5 @@ func completeFieldAndMethods(expr ast.Expr, orig string, checker *types.Checker)
 	for key := range suggests {
 		results = append(results, key)
 	}
-	sort.Strings(results)
 	return results
 }

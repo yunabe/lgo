@@ -247,6 +247,14 @@ var q Q = p
 				var buf bytes.sp[cur]`,
 			want: []string{"Split", "SplitAfter", "SplitAfterN", "SplitN"},
 		}, {
+			name: "package_upper",
+			src: `
+			import (
+				"bytes"
+			)
+			var buf bytes.SP[cur]`,
+			want: []string{"Split", "SplitAfter", "SplitAfterN", "SplitN"},
+		}, {
 			name: "value",
 			src: `
 			import (
@@ -342,6 +350,15 @@ var q Q = p
 			wantInclude: []string{"abc", "xyz"},
 			wantExclude: []string{"zzz"},
 		}, {
+			name: "id_upper",
+			src: `
+			abc := 100
+			xyz := "hello"
+			XY[cur]
+			zzz := 1.23
+			`,
+			want: []string{"xyz"},
+		}, {
 			name: "id_partial",
 			src: `
 			abc := 100
@@ -370,6 +387,18 @@ var q Q = p
 				xy[cur]
 			}`,
 			want: []string{"xyz"},
+		}, {
+			name: "sort",
+			src: `
+			type data struct {
+				abc int
+				DEF int
+				xyz int
+			}
+			var d data
+			d.[cur]
+			`,
+			want: []string{"abc", "DEF", "xyz"},
 		},
 	}
 	for _, tt := range tests {
