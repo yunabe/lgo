@@ -80,6 +80,11 @@ func switchstmt() int {
 		pkg0.ExitIfCtxDone()
 		light(x + 3)
 	}
+
+	switch {
+	case x > 0:
+		light(x + 10)
+	}
 	return x
 }
 func deferstmt() int {

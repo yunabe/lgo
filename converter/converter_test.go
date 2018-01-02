@@ -590,6 +590,12 @@ func TestConvert_autoExitCode(t *testing.T) {
 			light(x + 2)
 			light(x + 3)
 		}
+
+		// https://github.com/yunabe/lgo/issues/19
+		switch {
+		case x > 0:
+			light(x + 10)
+		}
 		return x
 	}
 

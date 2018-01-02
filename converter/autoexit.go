@@ -29,6 +29,9 @@ type containsCallVisitor struct {
 }
 
 func (v *containsCallVisitor) Visit(node ast.Node) ast.Visitor {
+	if node == nil {
+		return nil
+	}
 	if _, ok := node.(*ast.CallExpr); ok {
 		v.contains = true
 	}
