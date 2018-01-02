@@ -964,7 +964,7 @@ func TestConvert_underScoreInDefine(t *testing.T) {
 	if result.Err != nil {
 		t.Fatal(result.Err)
 	}
-	checkGolden(t, result.Src, "testdata/underscore_in_define")
+	checkGolden(t, result.Src, "testdata/underscore_in_define.golden")
 }
 
 func TestConvert_labeledBranch(t *testing.T) {
@@ -991,5 +991,13 @@ func TestConvert_labeledBranch(t *testing.T) {
 	if result.Err != nil {
 		t.Fatal(result.Err)
 	}
-	checkGolden(t, result.Src, "testdata/labeled_branch")
+	checkGolden(t, result.Src, "testdata/labeled_branch.golden")
+}
+
+func TestConvert_varUnderScoreOnly(t *testing.T) {
+	result := Convert("var _ int", &Config{LgoPkgPath: "lgo/pkg0"})
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	checkGolden(t, result.Src, "testdata/var_uderscore_only.golden")
 }

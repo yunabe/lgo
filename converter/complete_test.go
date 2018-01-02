@@ -399,6 +399,12 @@ var q Q = p
 			d.[cur]
 			`,
 			want: []string{"abc", "DEF", "xyz"},
+		}, {
+			// https://github.com/yunabe/lgo/issues/18
+			name:        "bug18",
+			src:         `var [cur]`,
+			ignoreWant:  true,
+			wantInclude: []string{"int64"},
 		},
 	}
 	for _, tt := range tests {

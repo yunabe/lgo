@@ -129,18 +129,19 @@ func convertToPhase1(blk *parser.LGOBlock) (out phase1Out) {
 
 	if out.vars != nil {
 		// Create consumeAll.
-		varNames := uniqueSortedNames(out.vars)
-		var lhs, rhs []ast.Expr
-		for _, name := range varNames {
-			lhs = append(lhs, &ast.Ident{Name: "_"})
-			rhs = append(rhs, &ast.Ident{Name: name})
+		if varNames := uniqueSortedNames(out.vars); len(varNames) > 0 {
+			var lhs, rhs []ast.Expr
+			for _, name := range varNames {
+				lhs = append(lhs, &ast.Ident{Name: "_"})
+				rhs = append(rhs, &ast.Ident{Name: name})
+			}
+			out.consumeAll = &ast.AssignStmt{
+				Lhs: lhs,
+				Rhs: rhs,
+				Tok: token.ASSIGN,
+			}
+			initBody = append(initBody, out.consumeAll)
 		}
-		out.consumeAll = &ast.AssignStmt{
-			Lhs: lhs,
-			Rhs: rhs,
-			Tok: token.ASSIGN,
-		}
-		initBody = append(initBody, out.consumeAll)
 	}
 
 	out.initFunc = &ast.FuncDecl{

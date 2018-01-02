@@ -1,0 +1,5 @@
+package lgo_exec
+
+var (
+	_ int
+)
