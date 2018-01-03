@@ -251,7 +251,6 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 			}
 		}
 	}
-	ph1.initFunc.Body.List = newInitBody
 
 	if varSpecs != nil {
 		ph1.file.Decls = append(ph1.file.Decls, &ast.GenDecl{
@@ -290,8 +289,9 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 				registers = append(registers, &ast.ExprStmt{X: call})
 			}
 		}
-		ph1.initFunc.Body.List = append(registers, ph1.initFunc.Body.List...)
+		newInitBody = append(registers, newInitBody...)
 	}
+	ph1.initFunc.Body.List = newInitBody
 
 	var newDels []ast.Decl
 	for _, im := range immg.injectedImports {

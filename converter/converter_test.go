@@ -749,6 +749,16 @@ func TestConvert_registerVars(t *testing.T) {
 	checkGolden(t, result.Src, "testdata/register_vars.golden")
 }
 
+func TestConvert_registerVarsVarOnly(t *testing.T) {
+	// lgo_init should not be removed because it invokes LgoRegisterVars.
+	result := Convert("var c string", &Config{LgoPkgPath: "lgo/pkg0", RegisterVars: true})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/register_vars_var_only.golden")
+}
+
 func TestConvert_wrapGoStmt(t *testing.T) {
 	result := Convert(`
 	f := func(x, y int) int { return x + y }
