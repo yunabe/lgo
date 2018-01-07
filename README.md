@@ -1,13 +1,14 @@
 # lgo
 [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master?filepath=basics.ipynb)
 
-Interactive Go (golang) REPL and Jupyter Notebook kernel
+Go (golang) Jupyter Notebook kernel and an interactive REPL
 
 # Features
-- Write and execute Go (golang) interactively.
+- Write and execute Go (golang) interactively like Python.
 - Jupyter Notebook integration
-- Full Go (golang) language spec support
+- Full Go (golang) language spec support. 100% gc (go compiler) compatible.
 - Code completion and inspection in Jupyter Notebooks
+- Display images, HTML, JavaScript, SVG, etc...
 - Currently, lgo is only supported on Linux. But you can use lgo on Mac and Windows with virtual machines or Docker.
 
 <img src="https://drive.google.com/uc?export=view&id=12_7fHfKfdSy8SNXi0nsWznbsRgix9tGJ" width="400" height="366">
@@ -173,7 +174,7 @@ gore is a CLI tool and it does not support Jupyter Notebook.
 |Code completion|:heavy_check_mark:||
 |Code inspection|:heavy_check_mark:||
 |[Display HTML and images](https://github.com/yunabe/lgo/blob/master/README.md#display-html-and-images)|:heavy_check_mark:||
-|Windows, Mac|Use Docker or VM|Native|
+|Windows, Mac|Use Docker or VM|Partial|
 
 [gophernotes](https://github.com/gopherdata/gophernotes) is the first Jupyter kernel for Go, released in Jan 2016.
 Before [Sep 2017](https://github.com/gopherdata/gophernotes/commit/69792d8af799d6905e2c576164d1a189ac021784#diff-04c6e90faac2675aa89e2176d2eec7d8), it used the same technology gore uses to evaluate Go code. This means it did not fit to heavy data processing or data analysis at all.
@@ -188,7 +189,8 @@ The shortcomings of using an unofficial interpreter are
 
 The advantages of this approach are
 - The overhead of code execution is small because it does not compile and link code.
-- Windows/Mac native support. lgo works only in Linux and you need to use VMs  or Docker to run it on Windows/Mac.
+- Windows/Mac partial support. lgo works only on Linux and you need to use VMs or Docker to run it on Windows/Mac.
+  gophernotes (gomacro) works on Windows/Mac natively [if you do not need third-party packages](https://github.com/gopherdata/gophernotes#limitations).
 
 These disadvantage and advantages are not something inevitable in interperters. But they are not easy to solve under the limited development resource.
 
