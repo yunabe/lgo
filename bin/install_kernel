@@ -1,5 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# This script is based on https://github.com/jupyter/echo_kernel/blob/master/echo_kernel/install.py
+
+from __future__ import print_function
 
 import argparse
 import json
@@ -9,12 +13,12 @@ import sys
 from jupyter_client.kernelspec import KernelSpecManager
 from IPython.utils.tempdir import TemporaryDirectory
 
-def install_kernel_spec(user, prefix):
+def install_kernel_spec(binary, user, prefix):
     kernel_json = {
         "display_name": "Go (lgo)",
         "language": "go",
     }
-    kernel_json["argv"] = ["lgo", "kernel", "--connection_file={connection_file}"]
+    kernel_json["argv"] = [binary, "kernel", "--connection_file={connection_file}"]
     with TemporaryDirectory() as td:
         os.chmod(td, 0o755) # Starts off as 700, not user readable
         with open(os.path.join(td, 'kernel.json'), 'w') as f:
@@ -40,6 +44,8 @@ def main(argv=None):
     ap.add_argument('--prefix',
         help="Install to the given prefix. "
              "Kernelspec will be installed in {PREFIX}/share/jupyter/kernels/")
+    ap.add_argument('--lgo-in-path', action='store_true',
+                    help="Use lgo under $PATH instead of $GOPATH/bin/lgo")
     args = ap.parse_args(argv)
 
     if args.sys_prefix:
@@ -47,7 +53,15 @@ def main(argv=None):
     if not args.prefix and not _is_root():
         args.user = True
 
-    install_kernel_spec(args.user, args.prefix)
+    binary = 'lgo'
+    if not args.lgo_in_path:
+        gopath = os.environ.get('GOPATH')
+        if not gopath:
+            print('GOPATH environment variable is empty', file=sys.stderr)
+            sys.exit(1)
+        binary = os.path.join(gopath, 'bin/lgo')
+
+    install_kernel_spec(binary, args.user, args.prefix)
 
 if __name__ == '__main__':
     main()
