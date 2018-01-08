@@ -434,19 +434,44 @@ func findIdentWithPos(node ast.Node, pos token.Pos) *ast.Ident {
 }
 
 type findIdentVisitor struct {
-	pos   token.Pos
-	ident *ast.Ident
+	skipRoot ast.Node
+	pos      token.Pos
+	ident    *ast.Ident
 }
 
 func (v *findIdentVisitor) Visit(node ast.Node) ast.Visitor {
 	if node == nil || v.ident != nil {
 		return nil
 	}
+	if node == v.skipRoot {
+		return v
+	}
 	if v.pos < node.Pos() || node.End() < v.pos {
 		return nil
 	}
 	if id, ok := node.(*ast.Ident); ok {
 		v.ident = id
+		return nil
+	}
+	if call, ok := node.(*ast.CallExpr); ok {
+		// Special handling for CallExpr to show docs of functions while users are typing args.
+		// See TestInspect/func_args test cases.
+		cv := findIdentVisitor{skipRoot: node, pos: v.pos}
+		ast.Walk(&cv, node)
+		if cv.ident != nil {
+			v.ident = cv.ident
+			return nil
+		}
+		if v.pos < call.Lparen || call.Rparen < v.pos {
+			return nil
+		}
+		fun := call.Fun
+		if sel, ok := fun.(*ast.SelectorExpr); ok {
+			fun = sel.Sel
+		}
+		if id, ok := fun.(*ast.Ident); ok {
+			v.ident = id
+		}
 		return nil
 	}
 	return v

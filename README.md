@@ -175,6 +175,7 @@ gore is a CLI tool and it does not support Jupyter Notebook.
 |Code inspection|:heavy_check_mark:||
 |[Display HTML and images](https://github.com/yunabe/lgo/blob/master/README.md#display-html-and-images)|:heavy_check_mark:||
 |Windows, Mac|Use Docker or VM|Partial|
+|License|BSD|LGPL|
 
 [gophernotes](https://github.com/gopherdata/gophernotes) is the first Jupyter kernel for Go, released in Jan 2016.
 Before [Sep 2017](https://github.com/gopherdata/gophernotes/commit/69792d8af799d6905e2c576164d1a189ac021784#diff-04c6e90faac2675aa89e2176d2eec7d8), it used the same technology gore uses to evaluate Go code. This means it did not fit to heavy data processing or data analysis at all.
@@ -196,6 +197,7 @@ These disadvantage and advantages are not something inevitable in interperters. 
 
 Also, lgo kernel supports more rich features in Jupyter Notebook as of Dec 2017, including code completion, code inspection and images/HTML/JavaScript output supports.
 
+# Troubleshooting
 ## old export format no longer supported
 ### Symptom
 Got error messages like:

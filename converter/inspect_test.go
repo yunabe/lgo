@@ -66,8 +66,56 @@ func TestInspect(t *testing.T) {
 			[cur]fn(10)
 			`,
 			doc: "func fn(x int) int",
-		},
-		{
+		}, {
+			name: "func_args",
+			src: `
+			func fn(x int) int { return x * x }
+			fn([cur]`,
+			doc: "func fn(x int) int",
+		}, {
+			name: "func_args_closed",
+			src: `
+			func fn(x int) int { return x * x }
+			fn([cur])
+			`,
+			doc: "func fn(x int) int",
+		}, {
+			name: "func_args_after_close",
+			src: `
+			func fn(x int) int { return x * x }
+			fn()[cur]
+			`,
+		}, {
+			name: "func_args_id",
+			src: `
+			func fn(x int) int { return x * x }
+			n := 10
+			fn(n[cur])
+			`,
+			doc: "var n int",
+		}, {
+			name: "func_args_comma",
+			src: `
+			func fn(x int) int { return x * x }
+			n := 10
+			fn(n,[cur])
+			`,
+			doc: "func fn(x int) int",
+		}, {
+			name: "func_args_nested",
+			src: `
+			func fn(x int) int { return x * x }
+			func xy(a int) int { return x * x }
+			fn(xy([cur]
+			`,
+			doc: "func xy(a int) int",
+		}, {
+			name: "func_args_selector",
+			src: `
+			import "bytes"
+			bytes.Compare(nil,[cur])`,
+			query: "bytes.Compare",
+		}, {
 			name: "method",
 			src: `
 			type typ int
