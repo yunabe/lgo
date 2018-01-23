@@ -32,7 +32,7 @@ func recordStderr(lgopath string) error {
 	if err != nil {
 		return err
 	}
-	tee := exec.Command("tee", "--ignore-interrupts", logPath)
+	tee := exec.Command("tee", "-i", logPath)
 	tee.Stdout = os.Stderr
 	tee.Stderr = os.Stderr
 	tee.Stdin = r
