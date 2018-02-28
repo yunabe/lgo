@@ -198,6 +198,34 @@ These disadvantage and advantages are not something inevitable in interperters. 
 Also, lgo kernel supports more rich features in Jupyter Notebook as of Dec 2017, including code completion, code inspection and images/HTML/JavaScript output supports.
 
 # Troubleshooting
+
+## Dead kernel
+### Symptom
+Got an error message like:
+
+```
+Kernel Restarting
+The kernel appears to have died. It will restart automatically.
+```
+
+### Solutions
+First, please confirm your code does not call [`os.Exit`](https://golang.org/pkg/os/#Exit) directly or indirectly.
+In lgo, your code is executed in the processs of lgo kernel. If you evaluate `os.Exit` in lgo, it terminates the lgo kernel process and jupyter notebook server loses the connection with the kernel.
+Thus, you must not evaluate `os.Exit` or functions that call it internally (e.g. `log.Fatal`) in lgo.
+
+If `os.Exit` is not the reason of "Dead kernel", please check crash logs of the kernel.
+If you run your notebook with `jupyter notebook` command in a terminal, the crash log should be there.
+If you run your notebook in docker, attach the container's terminal with [`docker attach`](https://docs.docker.com/engine/reference/commandline/attach/) to view the logs.
+If you can see the logs of `jupyter notebook`, you should see logs like
+
+```
+2018/03/01 20:30:45 lgo-internal failed: exit status 1
+[I 22:34:00.500 NotebookApp] KernelRestarter: restarting kernel (1/5)
+kernel abcd1234-5678-efghi-xxxx-777eeffcccbb restarted
+```
+
+and you can probably see helpful information before `lgo-internal failed` message.
+
 ## old export format no longer supported
 ### Symptom
 Got error messages like:
