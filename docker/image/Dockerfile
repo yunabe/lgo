@@ -4,6 +4,9 @@ FROM golang:1.9
 RUN apt-get update && apt-get install -y libzmq3-dev python-pip && rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade pip && pip install -U jupyter jupyterlab && jupyter serverextension enable --py jupyterlab --sys-prefix
 
+# Support UTF-8 filename in Python (https://stackoverflow.com/a/31754469)
+ENV LC_CTYPE=C.UTF-8
+
 ENV LGOPATH /lgo
 RUN mkdir -p $LGOPATH
 
