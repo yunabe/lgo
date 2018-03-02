@@ -1083,7 +1083,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 			},
 		})
 	}
-	// Remove unused imports.
+	// Rename unused imports to "_".
 	for _, decl := range file.Decls {
 		gen, ok := decl.(*ast.GenDecl)
 		if !ok || gen.Tok != token.IMPORT {
@@ -1102,9 +1102,10 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 			if pname == nil {
 				panic(fmt.Sprintf("*types.PkgName for %v not found", spec))
 			}
-			if pname.Used() {
-				specs = append(specs, spec)
+			if !pname.Used() {
+				spec.Name = ast.NewIdent("_")
 			}
+			specs = append(specs, spec)
 		}
 		if specs != nil {
 			gen.Specs = specs

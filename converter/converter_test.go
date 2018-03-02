@@ -397,11 +397,14 @@ func TestConvert_renameRefOtherPkgs(t *testing.T) {
 	checkGolden(t, result.Src, "testdata/rename_other_pkgs.golden")
 }
 
-func TestConvert_passImport(t *testing.T) {
+func TestConvert_unusedImport(t *testing.T) {
+	// Unused imports are renamed to "_" in the conversion.
+	// But the names are kept in result.Imports.
 	result := Convert(`
 	import (
 		"fmt"
 		logger "log"
+		_ "image/png"
 		"io/ioutil"
 	)
 
@@ -484,12 +487,7 @@ func TestConvert_lastExpr(t *testing.T) {
 }
 
 func TestConvert_emptyResult(t *testing.T) {
-	result := Convert(`
-	import (
-		"fmt"
-		"os"
-	)
-	`, &Config{LgoPkgPath: "lgo/pkg0"})
+	result := Convert("// Comment", &Config{LgoPkgPath: "lgo/pkg0"})
 	if result.Err != nil {
 		t.Error(result.Err)
 		return
@@ -497,6 +495,20 @@ func TestConvert_emptyResult(t *testing.T) {
 	if result.Src != "" {
 		t.Errorf("Expected empty but got %q", result.Src)
 	}
+}
+
+func TestConvert_importOnly(t *testing.T) {
+	result := Convert(`
+	import (
+		"fmt"
+		"os"
+	)
+	`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
+	if result.Err != nil {
+		t.Error(result.Err)
+		return
+	}
+	checkGolden(t, result.Src, "testdata/import_only.golden")
 	var imports []string
 	for _, im := range result.Imports {
 		imports = append(imports, im.Name())
@@ -643,22 +655,6 @@ func TestConvert_autoExitCode(t *testing.T) {
 		return
 	}
 	checkGolden(t, result.Src, "testdata/autoexit.golden")
-}
-
-func TestConvert_autoExitCodeImportOnly(t *testing.T) {
-	result := Convert(`
-	import (
-		"fmt"
-		"os"
-	)
-	`, &Config{LgoPkgPath: "lgo/pkg0", AutoExitCode: true})
-	if result.Err != nil {
-		t.Error(result.Err)
-		return
-	}
-	if len(result.Src) != 0 {
-		t.Errorf("Expected an empty src but got %q", result.Src)
-	}
 }
 
 func TestConvert_autoExitCodeVarOnly(t *testing.T) {

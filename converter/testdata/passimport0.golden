@@ -2,6 +2,9 @@ package lgo_exec
 
 import pkg0 "os"
 import (
+	_ "fmt"
+	_ "log"
+	_ "image/png"
 	"io/ioutil"
 )
 func lgo_init() {
