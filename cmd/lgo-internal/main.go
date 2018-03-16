@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"go/importer"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/yunabe/lgo/cmd/lgo-internal/liner"
 	"github.com/yunabe/lgo/cmd/runner"
+	"github.com/yunabe/lgo/converter"
 	"github.com/yunabe/lgo/core"
 	"golang.org/x/sys/unix"
 )
@@ -178,6 +180,11 @@ func main() {
 		glog.Fatalf("Failed to get the absolute path of LGOPATH: %v", err)
 	}
 	core.RegisterLgoPrinter(&printer{})
+	// Fom go1.10, go install does not install .a files into GOPATH.
+	// We need to read package information from .a files installed in LGOPATH instead.
+	converter.SetLGOImporter(importer.For("gc", func(path string) (io.ReadCloser, error) {
+		return os.Open(filepath.Join(lgopath, "pkg", path+".a"))
+	}))
 
 	if *subcomandFlag == "kernel" {
 		kernelMain(gopath, lgopath, &sessID)

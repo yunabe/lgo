@@ -22,7 +22,11 @@ const lgoInitFuncName = "lgo_init"
 const lgoPackageName = "lgo_exec" // TODO: Set a proper name.
 const runCtxName = "_ctx"
 
-var defaultImporter = importer.Default()
+var lgoImporter types.Importer = importer.Default()
+
+func SetLGOImporter(im types.Importer) {
+	lgoImporter = im
+}
 
 // ErrorList is a list of *Errors.
 // The zero value for an ErrorList is an empty ErrorList ready to use.
@@ -183,7 +187,7 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 				target = ph1.lastExpr.X
 			}
 			if target != nil {
-				corePkg, err := defaultImporter.Import(core.SelfPkgPath)
+				corePkg, err := lgoImporter.Import(core.SelfPkgPath)
 				if err != nil {
 					panic(fmt.Sprintf("Failed to import core: %v", err))
 				}
@@ -262,7 +266,7 @@ func convertToPhase2(ph1 phase1Out, pkg *types.Package, checker *types.Checker, 
 		})
 	}
 	if varSpecs != nil && conf.RegisterVars {
-		corePkg, err := defaultImporter.Import(core.SelfPkgPath)
+		corePkg, err := lgoImporter.Import(core.SelfPkgPath)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to import core: %v", err))
 		}
@@ -504,7 +508,7 @@ func InspectIdent(src string, pos token.Pos, conf *Config) (doc, query string) {
 
 func injectLgoContext(pkg *types.Package, scope *types.Scope) types.Object {
 	if scope.Lookup(runCtxName) == nil {
-		corePkg, err := defaultImporter.Import(core.SelfPkgPath)
+		corePkg, err := lgoImporter.Import(core.SelfPkgPath)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to import core: %v", err))
 		}
@@ -545,7 +549,7 @@ func inspectObject(src string, pos token.Pos, conf *Config) (obj types.Object, i
 
 	// var errs []error
 	chConf := &types.Config{
-		Importer: defaultImporter,
+		Importer: lgoImporter,
 		Error: func(err error) {
 			//	errs = append(errs, err)
 		},
@@ -759,7 +763,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 
 	var errs []error
 	chConf := &types.Config{
-		Importer: defaultImporter,
+		Importer: lgoImporter,
 		Error: func(err error) {
 			errs = append(errs, err)
 		},
@@ -823,7 +827,7 @@ func (im *importerWithOlds) Import(path string) (*types.Package, error) {
 	if pkg := im.olds[path]; pkg != nil {
 		return pkg, nil
 	}
-	return defaultImporter.Import(path)
+	return lgoImporter.Import(path)
 }
 
 // qualifiedIDFinder finds *ast.Ident that is used as "sel" of "pkg.sel".
@@ -1042,7 +1046,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 		if checker.Uses[id] != runctx {
 			return expr
 		}
-		corePkg, err := defaultImporter.Import(core.SelfPkgPath)
+		corePkg, err := lgoImporter.Import(core.SelfPkgPath)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to import core: %v", err))
 		}
@@ -1166,7 +1170,7 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 	if !ok {
 		return v
 	}
-	corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
+	corePkg, _ := lgoImporter.Import(core.SelfPkgPath)
 	for i, stmt := range b.List {
 		ast.Walk(v, stmt)
 		g, ok := stmt.(*ast.GoStmt)

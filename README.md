@@ -111,6 +111,13 @@ sum(3, 4) = 7
 The packages you want to use in lgo must be prebuilt and installed into `$LGOPATH` by `lgo install` command.
 Please make sure to run `lgo install` after you fetch a new package with `go get` command.
 
+## Update go version
+Please run `lgo install --clean` after you update `go` version.
+
+`lgo install` installs prebuilt packages into `$LGOPATH`.
+When you update `go` version, you need to reinstall these prebuilt packages with the newer `go`
+because binary formats of prebuilt packages may change in the newer version of go.
+
 ## Display HTML and images
 To display HTML and images in lgo, use [`_ctx.Display`](https://godoc.org/github.com/yunabe/lgo/core#LgoContext).
 See [the example of `_ctx.Display`](http://nbviewer.jupyter.org/github/yunabe/lgo/blob/master/examples/basics.ipynb#Display) in an example notebook
@@ -225,6 +232,21 @@ kernel abcd1234-5678-efghi-xxxx-777eeffcccbb restarted
 ```
 
 and you can probably see helpful information before `lgo-internal failed` message.
+
+## multiple roots
+### Sympton
+Got an error message like:
+
+```
+multiple roots $LGOPATH/pkg &
+Failed to build a shared library of github.com/yunabe/lgo/sess7b..7d/exec1: exit status 1
+```
+
+### Solutions
+This error occurs when the `go` command you are currently using is different from the `go` command you used to run `lgo install`.
+For example, this happens if you update `go` from 1.9 to 1.10 but did not run `lgo install --clean` with the new `go` after the update.
+
+If you encouter this issue, please double-check that you are using `go` which you used to run `lgo install` to install packages into `$LGOPATH`.
 
 ## old export format no longer supported
 ### Symptom

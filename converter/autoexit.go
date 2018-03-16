@@ -244,7 +244,7 @@ func (v *autoExitInjector) Visit(node ast.Node) ast.Visitor {
 
 func injectAutoExitToFile(file *ast.File, immg *importManager) {
 	importCore := func() string {
-		corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
+		corePkg, _ := lgoImporter.Import(core.SelfPkgPath)
 		return immg.shortName(corePkg)
 	}
 	injectAutoExit(file, importCore)
@@ -284,7 +284,7 @@ func mayWrapRecvOp(conf *Config, file *ast.File, fset *token.FileSet, checker *t
 	picker := newNamePicker(checker.Defs)
 	immg := newImportManager(pkg, file, checker)
 	importCore := func() string {
-		corePkg, _ := defaultImporter.Import(core.SelfPkgPath)
+		corePkg, _ := lgoImporter.Import(core.SelfPkgPath)
 		return immg.shortName(corePkg)
 	}
 
