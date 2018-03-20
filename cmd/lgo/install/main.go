@@ -93,7 +93,9 @@ func Main() {
 	}
 
 	log.Print("Building libstd.so")
-	cmd := exec.Command("go", "install", "-buildmode=shared", "-pkgdir", pkgDir, "std")
+	// Note: From go1.10, libstd.so should be installed with -linkshared to avoid recompiling std libraries.
+	//       go1.8 and go1.9 work regardless of the existence of -linkshared here.
+	cmd := exec.Command("go", "install", "-buildmode=shared", "-linkshared", "-pkgdir", pkgDir, "std")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	err = cmd.Run()
@@ -111,7 +113,7 @@ func Main() {
 	}
 
 	log.Print("Building third-party packages in $GOPATH")
-	buildThirPartyPackages(pkgDir, newPackageBlackList(*packageBlacklists))
+	buildThirdPartyPackages(pkgDir, newPackageBlackList(*packageBlacklists))
 
 	log.Print("Installing lgo-internal")
 	cmd = exec.Command("go", "build", "-pkgdir", pkgDir, "-linkshared",
