@@ -331,7 +331,7 @@ func complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
 	}
 
 	chConf := &types.Config{
-		Importer:          defaultImporter,
+		Importer:          lgoImporter,
 		Error:             func(err error) {},
 		IgnoreFuncBodies:  true,
 		DontIgnoreLgoInit: true,

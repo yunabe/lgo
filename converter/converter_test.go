@@ -165,7 +165,7 @@ func TestConvert_errorUndeclared(t *testing.T) {
 }
 
 func TestConvert_withOld(t *testing.T) {
-	im := defaultImporter
+	im := lgoImporter
 	bufio, err := im.Import("bufio")
 	if err != nil {
 		t.Error(err)

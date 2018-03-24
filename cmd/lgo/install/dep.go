@@ -175,7 +175,7 @@ func (c *packageBuildWalker) shouldSkipPkg(info *packageInfo) bool {
 	return false
 }
 
-func buildThirPartyPackages(pkgDir string, blacklist *packageBlackList) {
+func buildThirdPartyPackages(pkgDir string, blacklist *packageBlackList) {
 	infos, err := getPackagInfo("...")
 	if err != nil {
 		log.Fatalf("Failed to list packages: %v", err)
