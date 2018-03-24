@@ -62,7 +62,8 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
   - If `lgo install` fails, please check install log stored in `$LGOPATH/install.log`
   - If `lgo install` fails because some packages can not be built, use blacklist those packages with `-package_blacklist` flag.
 - Install the kernel configuration to Jupyter Notebook
-  - `$GOPATH/src/github.com/yunabe/lgo/bin/install_kernel`
+  - `python $GOPATH/src/github.com/yunabe/lgo/bin/install_kernel`
+  - Make sure to use the same version of `python` as you used to install `jupyter`. For example, use `python3` instead of `python` if you install `jupyter` with `pip3`.
 
 ## Usage: Jupyter Notebook
 - Run `jupyter notebook` command to start Juyputer Notebook and select "Go (lgo)" from New Notebook menu.
