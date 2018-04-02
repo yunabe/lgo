@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/yunabe/lgo/cmd/install"
 	"github.com/yunabe/lgo/core" // This is also important to install core package to GOPATH when this package is tested with go test.
 	"github.com/yunabe/lgo/parser"
 )
@@ -28,9 +29,39 @@ func SetLGOImporter(im types.Importer) {
 	lgoImporter = im
 }
 
+type PackageArchiveInstaller interface {
+	Install(pkgs []string) error
+}
+
+var pkgAInstaller PackageArchiveInstaller = nil
+
+func SetPackageArchiveInstaller(i PackageArchiveInstaller) {
+	pkgAInstaller = i
+}
+
+// maybeInstallPackageArchives installs .a files for third-party libraries into LGOPATH.
+func maybeInstallPackageArchives(imports []*ast.ImportSpec) {
+	if pkgAInstaller == nil {
+		return
+	}
+	pkgs := make([]string, 0, len(imports))
+	for _, im := range imports {
+		path, err := strconv.Unquote(im.Path.Value)
+		if err != nil {
+			continue
+		}
+		if install.IsStdPkg(path) {
+			continue
+		}
+		pkgs = append(pkgs, path)
+	}
+	if len(pkgs) > 0 {
+		pkgAInstaller.Install(pkgs)
+	}
+}
+
 // ErrorList is a list of *Errors.
 // The zero value for an ErrorList is an empty ErrorList ready to use.
-//
 type ErrorList []error
 
 // Add adds an Error with given position and error message to an ErrorList.
@@ -426,7 +457,10 @@ type ConvertResult struct {
 	Pkg     *types.Package
 	Checker *types.Checker
 	Imports []*types.PkgName
-	Err     error
+	// A list of package paths imported in the final Src.
+	FinalDeps []string
+
+	Err error
 }
 
 // findIdentWithPos finds an ast.Ident node at pos. Returns nil if pos does not point an Ident.
@@ -749,6 +783,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 	if err != nil {
 		return &ConvertResult{Err: err}
 	}
+	maybeInstallPackageArchives(blk.Imports)
 	phase1 := convertToPhase1(blk)
 
 	// TODO: Add a proper name to the package though it's not used at this moment.
@@ -789,7 +824,7 @@ func Convert(src string, conf *Config) *ConvertResult {
 	}
 	convertToPhase2(phase1, pkg, checker, conf)
 
-	fsrc, fpkg, fcheck, err := finalCheckAndRename(phase1.file, fset, conf)
+	fsrc, fpkg, fcheck, finalDeps, err := finalCheckAndRename(phase1.file, fset, conf)
 	if err != nil {
 		return &ConvertResult{Err: err}
 	}
@@ -804,10 +839,11 @@ func Convert(src string, conf *Config) *ConvertResult {
 	}
 
 	return &ConvertResult{
-		Src:     fsrc,
-		Pkg:     fpkg,
-		Checker: fcheck,
-		Imports: imports,
+		Src:       fsrc,
+		Pkg:       fpkg,
+		Checker:   fcheck,
+		Imports:   imports,
+		FinalDeps: finalDeps,
 	}
 }
 
@@ -1005,10 +1041,10 @@ func workaroundGoBug22998(decls []ast.Decl, pkg *types.Package, checker *types.C
 	}}, decls...)
 }
 
-func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (string, *types.Package, *types.Checker, error) {
+func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (string, *types.Package, *types.Checker, []string, error) {
 	checker, pkg, runctx, oldImports, err := checkFileInPhase2(conf, file, fset)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, nil, err
 	}
 	if conf.AutoExitCode {
 		checker, pkg, runctx, oldImports = mayWrapRecvOp(conf, file, fset, checker, pkg, runctx, oldImports)
@@ -1118,7 +1154,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 	}
 	if len(newDecls) == 0 {
 		// Nothing is left. Return an empty source.
-		return "", pkg, checker, nil
+		return "", pkg, checker, nil, nil
 	}
 	file.Decls = workaroundGoBug22998(newDecls, pkg, checker)
 	for ident, obj := range checker.Uses {
@@ -1139,11 +1175,29 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 			prependPrefixToID(ident, conf.RefPrefix)
 		}
 	}
+
+	var deps []string
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.IMPORT {
+			continue
+		}
+		for _, spec := range gen.Specs {
+			spec := spec.(*ast.ImportSpec)
+			path, err := strconv.Unquote(spec.Path.Value)
+			if err != nil {
+				panic(fmt.Sprintf("invalid path in parsed src: %s", spec.Path.Value))
+			}
+			deps = append(deps, path)
+		}
+	}
+	sort.Strings(deps)
+
 	finalSrc, err := printFinalResult(file, fset)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, nil, err
 	}
-	return finalSrc, pkg, checker, nil
+	return finalSrc, pkg, checker, deps, nil
 }
 
 func capturePanicInGoRoutine(file *ast.File, immg *importManager, defs map[*ast.Ident]types.Object) {

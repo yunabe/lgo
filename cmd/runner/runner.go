@@ -15,6 +15,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/yunabe/lgo/cmd/install"
 	"github.com/yunabe/lgo/converter"
 	"github.com/yunabe/lgo/core"
 )
@@ -130,6 +131,24 @@ func PrintError(w io.Writer, err error) {
 	}
 }
 
+// installDeps installs .so files for dependencies if .so files are not installed in $LGOPATH.
+func (rn *LgoRunner) installDeps(deps []string) error {
+	var need []string
+	for _, path := range deps {
+		if path == "C" || install.IsStdPkg(path) {
+			continue
+		}
+		if !install.IsSOInstalled(rn.lgopath, path) {
+			need = append(need, path)
+		}
+	}
+	if len(need) == 0 {
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "found packages not installed in LGOPATH: %v\n", need)
+	return install.NewSOInstaller(rn.lgopath).Install(need...)
+}
+
 const lgoExportPrefix = "LgoExport_"
 
 func (rn *LgoRunner) Run(ctx core.LgoContext, src string) error {
@@ -176,6 +195,10 @@ func (rn *LgoRunner) Run(ctx core.LgoContext, src string) error {
 	if err != nil {
 		return err
 	}
+	if err := rn.installDeps(result.FinalDeps); err != nil {
+		return err
+	}
+
 	buildPkgDir := path.Join(rn.lgopath, "pkg")
 	cmd := exec.CommandContext(ctx, "go", "install", "-buildmode=shared", "-linkshared", "-pkgdir", buildPkgDir, pkgPath)
 	cmd.Stderr = os.Stderr

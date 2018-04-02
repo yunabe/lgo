@@ -128,6 +128,11 @@ func TestConvert_simple(t *testing.T) {
 		return
 	}
 	checkGolden(t, result.Src, "testdata/simple.golden")
+
+	wantDeps := []string{"fmt", "io"}
+	if !reflect.DeepEqual(result.FinalDeps, wantDeps) {
+		t.Errorf("result.FinalDeps = %v; want %v", result.FinalDeps, wantDeps)
+	}
 }
 
 func TestConvert_novar(t *testing.T) {
@@ -537,6 +542,11 @@ func TestConvert_lgoctxBuiltin(t *testing.T) {
 		return
 	}
 	checkGolden(t, result.Src, "testdata/lgoctx_builtin.golden")
+
+	wantDeps := []string{"github.com/yunabe/lgo/core"}
+	if !reflect.DeepEqual(result.FinalDeps, wantDeps) {
+		t.Errorf("result.FinalDeps = %v; want %v", result.FinalDeps, wantDeps)
+	}
 }
 
 func TestConvert_autoExitCode(t *testing.T) {
@@ -1006,4 +1016,27 @@ func TestConvert_varUnderScoreOnly(t *testing.T) {
 		t.Fatal(result.Err)
 	}
 	checkGolden(t, result.Src, "testdata/var_uderscore_only.golden")
+}
+
+type pkgInstallRecorder struct {
+	pkgs []string
+}
+
+func (r *pkgInstallRecorder) Install(pkgs []string) error {
+	r.pkgs = pkgs
+	return nil
+}
+
+func TestConvert_installArchive(t *testing.T) {
+	r := &pkgInstallRecorder{}
+	SetPackageArchiveInstaller(r)
+	defer SetPackageArchiveInstaller(nil)
+
+	Convert(`
+	import "fmt"
+  import "github.com/yunabe/dummypkg9171"
+	`, &Config{LgoPkgPath: "lgo/pkg0"})
+	if len(r.pkgs) != 1 || r.pkgs[0] != "github.com/yunabe/dummypkg9171" {
+		t.Errorf("Got %v; want [\"github.com/yunabe/dummypkg9171\"]", r.pkgs)
+	}
 }

@@ -8,7 +8,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -154,6 +156,16 @@ loop:
 	}
 }
 
+func installPkgArchive(pkgDir string, paths []string) error {
+	return exec.Command("go", append([]string{"install", "-linkshared", "-pkgdir", pkgDir}, paths...)...).Run()
+}
+
+type packageArchiveInstaller struct{ pkgDir string }
+
+func (in *packageArchiveInstaller) Install(pkgs []string) error {
+	return installPkgArchive(in.pkgDir, pkgs)
+}
+
 func main() {
 	flag.Parse()
 	if *sessIDFlag == "" {
@@ -180,11 +192,19 @@ func main() {
 		glog.Fatalf("Failed to get the absolute path of LGOPATH: %v", err)
 	}
 	core.RegisterLgoPrinter(&printer{})
+	pkgDir := path.Join(lgopath, "pkg")
 	// Fom go1.10, go install does not install .a files into GOPATH.
 	// We need to read package information from .a files installed in LGOPATH instead.
 	converter.SetLGOImporter(importer.For("gc", func(path string) (io.ReadCloser, error) {
-		return os.Open(filepath.Join(lgopath, "pkg", path+".a"))
+		abs := filepath.Join(lgopath, "pkg", path+".a")
+		if _, err := os.Stat(abs); os.IsNotExist(err) {
+			installPkgArchive(pkgDir, []string{path})
+		}
+		return os.Open(abs)
 	}))
+	converter.SetPackageArchiveInstaller(&packageArchiveInstaller{
+		pkgDir: pkgDir,
+	})
 
 	if *subcomandFlag == "kernel" {
 		kernelMain(gopath, lgopath, &sessID)
