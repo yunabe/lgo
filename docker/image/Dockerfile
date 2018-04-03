@@ -31,7 +31,7 @@ RUN go get github.com/yunabe/lgo/cmd/lgo && go get -d github.com/yunabe/lgo/cmd/
 RUN go get -u github.com/nfnt/resize gonum.org/v1/gonum/... gonum.org/v1/plot/...
 
 # Install lgo
-RUN lgo install
+RUN lgo install && lgo installpkg github.com/nfnt/resize gonum.org/v1/gonum/... gonum.org/v1/plot/...
 RUN $GOPATH/src/github.com/yunabe/lgo/bin/install_kernel
 
 # Notes:
