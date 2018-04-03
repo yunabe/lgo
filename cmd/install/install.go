@@ -59,9 +59,15 @@ func NewSOInstaller(lgopath string) *SOInstaller {
 	}
 }
 
+// TODO: File bugs to explain reasons.
+var knownIncompatiblePkgs = map[string]bool{
+	"golang.org/x/sys/plan9":                    true,
+	"github.com/derekparker/delve/cmd/dlv/cmds": true,
+}
+
 // Install
 func (si *SOInstaller) Install(patterns ...string) error {
-	pkgs, err := si.GetPackageList(patterns...)
+	pkgs, err := si.getPackageList(patterns...)
 	if err != nil {
 		return err
 	}
@@ -90,12 +96,12 @@ func (si *SOInstaller) Install(patterns ...string) error {
 	return nil
 }
 
-// GetPackage returns the packageInfo for the path.
-func (si *SOInstaller) GetPackage(path string) (*packageInfo, error) {
+// getPackage returns the packageInfo for the path.
+func (si *SOInstaller) getPackage(path string) (*packageInfo, error) {
 	if pkg, ok := si.cache[path]; ok {
 		return pkg, nil
 	}
-	pkgs, err := si.GetPackageList(path)
+	pkgs, err := si.getPackageList(path)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +111,7 @@ func (si *SOInstaller) GetPackage(path string) (*packageInfo, error) {
 	return pkgs[0], nil
 }
 
-func (si *SOInstaller) GetPackageList(args ...string) (infos []*packageInfo, err error) {
+func (si *SOInstaller) getPackageList(args ...string) (infos []*packageInfo, err error) {
 	cmd := exec.Command("go", append([]string{"list", "-json"}, args...)...)
 	cmd.Stderr = os.Stderr
 	// We do not need to close r (https://golang.org/pkg/os/exec/#Cmd.StdoutPipe).
@@ -172,7 +178,7 @@ func (w *walker) walk(path string) bool {
 		w.visited = make(map[string]bool)
 	}
 	w.visited[path] = true
-	pkg, err := w.si.GetPackage(path)
+	pkg, err := w.si.getPackage(path)
 	if err != nil {
 		w.logf("failed to get package info for %q: %v", path, err)
 		w.progress++
@@ -192,7 +198,10 @@ func (w *walker) walk(path string) bool {
 	if w.dryRun {
 		return true
 	}
-	w.logf("installing %q", path)
+	if knownIncompatiblePkgs[path] {
+		w.logf("skipped %q: known incompatible package", path)
+		return true
+	}
 	cmd := exec.Command("go", "install", "-buildmode=shared", "-linkshared", "-pkgdir", w.si.pkgDir, path)
 	cmd.Stdout = w.stdout
 	cmd.Stderr = w.stderr
@@ -200,5 +209,6 @@ func (w *walker) walk(path string) bool {
 		w.logf("failed to install %q: %v", path, err)
 		return false
 	}
+	w.logf("installed %q", path)
 	return true
 }

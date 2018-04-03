@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/yunabe/lgo/cmd/install"
 	"github.com/yunabe/lgo/core" // This import is also important to install the core package to GOPATH when lgo-install is installed.
 )
 
@@ -41,20 +42,13 @@ func recordStderr(lgopath string) error {
 	return tee.Start()
 }
 
-func Main() {
-	fSet := flag.NewFlagSet(os.Args[0]+" install", flag.ExitOnError)
-	packageBlacklists := fSet.String("package_blacklist", "", "A commna separated list of package you don't need to use from lgo")
-	cleanBeforeInstall := fSet.Bool("clean", false, "If true, clean existing files before install")
-	// Ignore errors; CommandLine is set for ExitOnError.
-	fSet.Parse(os.Args[2:])
-
+func checkEnv() string {
 	if runtime.GOOS != "linux" {
 		log.Fatal("lgo only supports Linux")
 	}
 	root := os.Getenv("LGOPATH")
 	if root == "" {
 		log.Fatalf("LGOPATH environ variable is not set")
-		return
 	}
 	root, err := filepath.Abs(root)
 	if err != nil {
@@ -68,27 +62,33 @@ func Main() {
 	if err != nil {
 		log.Fatalf("Failed to record logs to install.log in %s: %v", root, err)
 	}
+	return root
+}
 
+func InstallMain() {
+	fSet := flag.NewFlagSet(os.Args[0]+" install", flag.ExitOnError)
+	cleanBeforeInstall := fSet.Bool("clean", false, "If true, clean existing files before install")
+	// Ignore errors; fSet is set for ExitOnError.
+	fSet.Parse(os.Args[2:])
+
+	root := checkEnv()
 	log.Printf("Install lgo to %s", root)
 	binDir := path.Join(root, "bin")
 	pkgDir := path.Join(root, "pkg")
 	if *cleanBeforeInstall {
 		log.Printf("Clean %s before install", root)
-		err = os.RemoveAll(binDir)
-		if err != nil {
+		if err := os.RemoveAll(binDir); err != nil {
 			log.Fatalf("Failed to clean bin dir: %v", err)
 		}
-		err = os.RemoveAll(pkgDir)
-		if err != nil {
+		if err := os.RemoveAll(pkgDir); err != nil {
 			log.Fatalf("Failed to clean pkg dir: %v", err)
 		}
 	}
-	err = os.MkdirAll(binDir, 0766)
-	if err != nil {
+	if err := os.MkdirAll(binDir, 0766); err != nil {
 		log.Fatalf("Failed to create bin dir: %v", err)
 	}
-	err = os.MkdirAll(pkgDir, 0766)
-	if err != nil {
+
+	if err := os.MkdirAll(pkgDir, 0766); err != nil {
 		log.Fatalf("Failed to clean pkg dir: %v", err)
 	}
 
@@ -98,8 +98,7 @@ func Main() {
 	cmd := exec.Command("go", "install", "-buildmode=shared", "-linkshared", "-pkgdir", pkgDir, "std")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	err = cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		log.Fatalf("Failed to build libstd.so: %v", err)
 	}
 
@@ -107,22 +106,45 @@ func Main() {
 	cmd = exec.Command("go", "install", "-buildmode=shared", "-linkshared", "-pkgdir", pkgDir, core.SelfPkgPath)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	err = cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		log.Fatalf("Failed to build the shared object of the core library: %v", err)
 	}
 
 	log.Print("Building third-party packages in $GOPATH")
-	buildThirdPartyPackages(pkgDir, newPackageBlackList(*packageBlacklists))
+	// buildThirdPartyPackages(pkgDir, newPackageBlackList(*packageBlacklists))
 
 	log.Print("Installing lgo-internal")
 	cmd = exec.Command("go", "build", "-pkgdir", pkgDir, "-linkshared",
 		"-o", path.Join(binDir, "lgo-internal"), "github.com/yunabe/lgo/cmd/lgo-internal")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	err = cmd.Run()
-	if err != nil {
+
+	if err := cmd.Run(); err != nil {
 		log.Fatalf("Failed to build lgo-internal: %v", err)
 	}
 	log.Printf("lgo was installed in %s successfully", root)
+}
+
+func InstallPkgMain() {
+	fSet := flag.NewFlagSet(os.Args[0]+" pkginstall", flag.ExitOnError)
+	// Ignore errors; fSet is set for ExitOnError.
+	fSet.Parse(os.Args[2:])
+
+	root := checkEnv()
+
+	var args []string
+	ok := true
+	for _, arg := range fSet.Args() {
+		if install.IsStdPkg(arg) {
+			log.Printf("Can not install std packages: %v", arg)
+			ok = false
+		}
+		args = append(args, arg)
+	}
+	if !ok {
+		os.Exit(1)
+	}
+	if err := install.NewSOInstaller(root).Install(args...); err != nil {
+		log.Fatal(err)
+	}
 }

@@ -24,11 +24,12 @@ Usage:
 
 The commands are;
 
-    install    install lgo into $LGOPATH. You need to run this command before using lgo
-	kernel     run a jupyter notebook kernel
-	run        run Go code defined in files
-	repl       ...
-	clean      clean temporary files created by lgo
+	install       install lgo into $LGOPATH. You need to run this command before using lgo
+	installpkg    install packages into $LGOPATH. This operation is optional.
+	kernel        run a jupyter notebook kernel
+	run           run Go code defined in files
+	repl          ...
+	clean         clean temporary files created by lgo
 `
 
 var commandStrRe = regexp.MustCompile("[a-z]+")
@@ -105,7 +106,9 @@ func main() {
 	}
 	switch cmd {
 	case "install":
-		install.Main()
+		install.InstallMain()
+	case "installpkg":
+		install.InstallPkgMain()
 	case "kernel":
 		kernelMain()
 	case "run":
