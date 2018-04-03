@@ -17,8 +17,7 @@ import (
 // recordStderr invokes `tee` command to store logs and stderr of this command to install.log.
 // `tee` process is used instead of internal pipes and goroutine so that logs are stored properly
 // when this process is killed with SIGINT or os.Exit.
-func recordStderr(lgopath string) error {
-	logPath := filepath.Join(lgopath, "install.log")
+func recordStderr(logPath string) error {
 	if err := func() error {
 		f, err := os.Create(logPath)
 		if err != nil {
@@ -42,7 +41,7 @@ func recordStderr(lgopath string) error {
 	return tee.Start()
 }
 
-func checkEnv() string {
+func checkEnv(logFileName string) string {
 	if runtime.GOOS != "linux" {
 		log.Fatal("lgo only supports Linux")
 	}
@@ -57,9 +56,8 @@ func checkEnv() string {
 	if err := os.MkdirAll(root, 0766); err != nil {
 		log.Fatalf("Failed to create a directory on $LGOPATH: %v", err)
 	}
-	// Record logs into install.log and stderr.
-	err = recordStderr(root)
-	if err != nil {
+	// Record logs into logFileName and stderr.
+	if err := recordStderr(filepath.Join(root, logFileName)); err != nil {
 		log.Fatalf("Failed to record logs to install.log in %s: %v", root, err)
 	}
 	return root
@@ -71,7 +69,7 @@ func InstallMain() {
 	// Ignore errors; fSet is set for ExitOnError.
 	fSet.Parse(os.Args[2:])
 
-	root := checkEnv()
+	root := checkEnv("install.log")
 	log.Printf("Install lgo to %s", root)
 	binDir := path.Join(root, "bin")
 	pkgDir := path.Join(root, "pkg")
@@ -130,7 +128,7 @@ func InstallPkgMain() {
 	// Ignore errors; fSet is set for ExitOnError.
 	fSet.Parse(os.Args[2:])
 
-	root := checkEnv()
+	root := checkEnv("installpkg.log")
 
 	var args []string
 	ok := true

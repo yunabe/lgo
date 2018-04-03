@@ -57,10 +57,15 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
   - `lgo install` will install binaries into the directory specified with `LGOPATH`.
   - You can use any empty directory with write permission as `LGOPATH`.
 - Run `lgo install`
-  - This installs libraries in your `$GOPATH/src` to `LGOPATH` with specific compiler flags.
-  - It takes long time to install libraries if there are a lot libraries in your `GOPATH`.
+  - This installs std libraries and the internal lgo tool into `LGOPATH` with specific compiler flags.
   - If `lgo install` fails, please check install log stored in `$LGOPATH/install.log`
-  - If `lgo install` fails because some packages can not be built, use blacklist those packages with `-package_blacklist` flag.
+- (Optional) Run `lgo installpkg [packages]` to install third-party packages to `LGOPATH`
+  - You can preinstall third-party packages into `LGOPATH`.
+  - This step is optional. If packages are not preinstalled, lgo installs the packages on the fly.
+  - But, installing packages is a heavy and slow process. I recommend you to preinstall packages
+    which you will use in the future with high probability.
+  - If `lgo installpkg` fails, please check the log stored in `$LGOPATH/installpkg.log`.
+  - See [go's manual](https://golang.org/cmd/go/#hdr-Package_lists) about the format of `[packages]` args.
 - Install the kernel configuration to Jupyter Notebook
   - `python $GOPATH/src/github.com/yunabe/lgo/bin/install_kernel`
   - Make sure to use the same version of `python` as you used to install `jupyter`. For example, use `python3` instead of `python` if you install `jupyter` with `pip3`.
