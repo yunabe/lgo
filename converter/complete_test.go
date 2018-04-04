@@ -406,6 +406,30 @@ var q Q = p
 			ignoreWant:  true,
 			wantInclude: []string{"int64"},
 		},
+		{
+			name: "test_name_at_camel_hump",
+			src: `
+			func testFunc() {
+			}
+			testf[cur]`,
+			want: []string{"testFunc"},
+		},
+		{
+			name: "test_name_with_go_keyword",
+			src: `
+			func testFunc() {
+			}
+			go testF[cur]`,
+			want: []string{"testFunc"},
+		},
+		{
+			name: "test_name_with_defer_keyword",
+			src: `
+			func testFunc() {
+			}
+			defer testF[cur]`,
+			want: []string{"testFunc"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -248,7 +248,7 @@ func listCandidatesFromScope(s *types.Scope, pos token.Pos, prefix string, candi
 		return
 	}
 	for _, name := range s.Names() {
-		if !strings.HasPrefix(name, prefix) {
+		if !strings.HasPrefix(strings.ToLower(name), prefix) {
 			continue
 		}
 		if _, obj := s.LookupParent(name, pos); obj != nil {
@@ -305,7 +305,19 @@ func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
 	return match, start, end
 }
 
+func removePrefixes(src, prefix string) string {
+	if strings.Index(src, prefix) >= 0 {
+		src = strings.Replace(src, prefix, "", 1)
+	}
+
+	return src
+}
+
 func complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
+	// Removing go and defer prefixes from the string; fixes #8
+	removePrefixes(src, "go ")
+	removePrefixes(src, "defer ")
+
 	fset, blk, _ := parseLesserGoString(src)
 
 	target := completeTargetFromAST(src, pos, blk)
