@@ -405,6 +405,25 @@ var q Q = p
 			src:         `var [cur]`,
 			ignoreWant:  true,
 			wantInclude: []string{"int64"},
+		}, {
+			name: "bug17",
+			src: `
+			import "bytes"
+			var buf bytes.Buffer
+			buf.[cur]
+			y := 10`,
+			ignoreWant: true,
+			// TODO: Fix issue #17.
+			// wantInclude: []string{"Bytes", "Grow", "Len"},
+		}, {
+			// Similar to bug17, but Complete works in this case.
+			name: "bug17ok",
+			src: `
+			import "bytes"
+			var buf bytes.Buffer
+			buf.un[cur]
+			y := 10`,
+			want: []string{"UnreadByte", "UnreadRune"},
 		},
 	}
 	for _, tt := range tests {
@@ -438,5 +457,66 @@ var q Q = p
 				}
 			}
 		})
+	}
+}
+
+func TestCompleteKeywords(t *testing.T) {
+	// Checks autocomplete works even if identifiers have keyword prefixes.
+	// https://golang.org/ref/spec#Keywords
+	kwds := []string{
+		"break", "default", "func", "interface", "select",
+		"case", "defer", "go", "map", "struct",
+		"chan", "else", "goto", "package", "switch",
+		"const", "fallthrough", "if", "range", "type",
+		"continue", "for", "import", "return", "var",
+	}
+	tests := []struct {
+		name string
+		code string
+		want []string
+	}{
+		{
+			name: "id",
+			code: `
+			var [kwd]xyz, [kwd]abc int
+			[kwd][cur]`,
+			want: []string{"[kwd]abc", "[kwd]xyz"},
+		}, {
+			name: "idspace",
+			code: `
+			var [kwd]def, [kwd]ghi int
+			[kwd][cur] + 10`,
+			want: []string{"[kwd]def", "[kwd]ghi"},
+		}, {
+			name: "dot",
+			code: `
+			type data struct {
+			  [kwd]123 int
+			  [kwd]456 string
+			}
+			var d data
+			d.[kwd][cur]`,
+			want: []string{"[kwd]123", "[kwd]456"},
+		},
+	}
+	for _, kwd := range kwds {
+		for _, src := range tests {
+			t.Run(kwd+"_"+src.name, func(t *testing.T) {
+				code := strings.Replace(src.code, "[kwd]", kwd, -1)
+				pos := token.Pos(strings.Index(code, "[cur]") + 1)
+				if pos <= 0 {
+					t.Fatal("[cur] not found")
+					return
+				}
+				got, _, _ := Complete(strings.Replace(code, "[cur]", "", -1), pos, &Config{})
+				var want []string
+				for _, w := range src.want {
+					want = append(want, strings.Replace(w, "[kwd]", kwd, -1))
+				}
+				if !reflect.DeepEqual(got, want) {
+					t.Errorf("got %v; want %v", got, want)
+				}
+			})
+		}
 	}
 }

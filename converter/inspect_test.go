@@ -240,6 +240,7 @@ func TestInspect(t *testing.T) {
 			f := flag.F[cur]lag{}`,
 			query: "flag.Flag",
 		}, {
+			// This fails with go1.8 expectedly.
 			name: "field",
 			src: `
 			import (
