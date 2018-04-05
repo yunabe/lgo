@@ -248,7 +248,7 @@ func listCandidatesFromScope(s *types.Scope, pos token.Pos, prefix string, candi
 		return
 	}
 	for _, name := range s.Names() {
-		if !strings.HasPrefix(name, prefix) {
+		if !strings.HasPrefix(strings.ToLower(name), prefix) {
 			continue
 		}
 		if _, obj := s.LookupParent(name, pos); obj != nil {
