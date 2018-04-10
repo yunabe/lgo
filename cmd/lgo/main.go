@@ -44,10 +44,6 @@ func runLgoInternal(subcommand string, extraArgs []string) {
 	if runtime.GOOS != "linux" {
 		log.Fatal("lgo only supports Linux")
 	}
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		log.Fatal("GOPATH is not set")
-	}
 	lgopath := os.Getenv("LGOPATH")
 	if lgopath == "" {
 		log.Fatal("LGOPATH is empty")
@@ -80,7 +76,7 @@ func runLgoInternal(subcommand string, extraArgs []string) {
 		log.Printf("lgo-internal failed: %v", err)
 	}
 	// In case lgo-internal exists before cleaning files (e.g. os.Exit is called)
-	runner.CleanSession(gopath, lgopath, sessID)
+	runner.CleanSession(lgopath, sessID)
 }
 
 func runMain() {

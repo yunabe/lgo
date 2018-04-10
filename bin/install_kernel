@@ -6,6 +6,7 @@
 from __future__ import print_function
 
 import argparse
+import commands
 import json
 import os
 import sys
@@ -55,9 +56,9 @@ def main(argv=None):
 
     binary = 'lgo'
     if not args.lgo_in_path:
-        gopath = os.environ.get('GOPATH')
-        if not gopath:
-            print('GOPATH environment variable is empty', file=sys.stderr)
+        rc, gopath = commands.getstatusoutput('go env GOPATH')
+        if rc != 0:
+            print('Failed to get GOPATH: ' + gopath, file=sys.stderr)
             sys.exit(1)
         binary = os.path.join(gopath, 'bin/lgo')
 

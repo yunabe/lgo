@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"go/build"
 	"io/ioutil"
 	"os"
 	"path"
@@ -29,8 +30,8 @@ func cleanSharedLibs(lgopath string, sessID *SessionID) error {
 
 // CleanSession cleans up files for a session specified by sessNum.
 // CleanSession returns nil when no target file exists.
-func CleanSession(gopath, lgopath string, sessID *SessionID) error {
-	srcErr := os.RemoveAll(path.Join(gopath, "src/github.com/yunabe/lgo", sessID.Marshal()))
+func CleanSession(lgopath string, sessID *SessionID) error {
+	srcErr := os.RemoveAll(path.Join(build.Default.GOPATH, "src/github.com/yunabe/lgo", sessID.Marshal()))
 	soErr := cleanSharedLibs(lgopath, sessID)
 	if srcErr != nil {
 		return srcErr

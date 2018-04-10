@@ -249,10 +249,10 @@ func (kernelLogWriter) Write(p []byte) (n int, err error) {
 	return os.Stderr.Write(p)
 }
 
-func kernelMain(gopath, lgopath string, sessID *runner.SessionID) {
+func kernelMain(lgopath string, sessID *runner.SessionID) {
 	log.SetOutput(kernelLogWriter{})
 	server, err := scaffold.NewServer(*connectionFile, &handlers{
-		runner: runner.NewLgoRunner(gopath, lgopath, sessID),
+		runner: runner.NewLgoRunner(lgopath, sessID),
 	})
 	if err != nil {
 		glog.Fatalf("Failed to create a server: %v", err)
@@ -262,5 +262,5 @@ func kernelMain(gopath, lgopath string, sessID *runner.SessionID) {
 	server.Loop()
 	// clean-up
 	glog.Infof("Clean the session: %s", sessID.Marshal())
-	runner.CleanSession(gopath, lgopath, sessID)
+	runner.CleanSession(lgopath, sessID)
 }

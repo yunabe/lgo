@@ -179,10 +179,6 @@ func main() {
 		glog.Fatal("--subcomand is not set")
 	}
 
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		glog.Fatal("GOPATH is not set")
-	}
 	lgopath := os.Getenv("LGOPATH")
 	if lgopath == "" {
 		glog.Fatal("LGOPATH is empty")
@@ -207,11 +203,11 @@ func main() {
 	})
 
 	if *subcomandFlag == "kernel" {
-		kernelMain(gopath, lgopath, &sessID)
+		kernelMain(lgopath, &sessID)
 		exitProcess()
 	}
 
-	rn := runner.NewLgoRunner(gopath, lgopath, &sessID)
+	rn := runner.NewLgoRunner(lgopath, &sessID)
 	useFiles := len(flag.Args()) > 0
 	ctx := createProcessContext(useFiles)
 
@@ -223,6 +219,6 @@ func main() {
 
 	// clean-up
 	glog.Infof("Clean the session: %s", sessID.Marshal())
-	runner.CleanSession(gopath, lgopath, &sessID)
+	runner.CleanSession(lgopath, &sessID)
 	exitProcess()
 }

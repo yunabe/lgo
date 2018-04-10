@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"go/build"
 	"go/scanner"
 	"go/token"
 	"go/types"
@@ -66,7 +67,6 @@ func loadSharedInternal(buildPkgDir, pkgPath string) {
 }
 
 type LgoRunner struct {
-	gopath    string
 	lgopath   string
 	sessID    *SessionID
 	execCount int64
@@ -74,9 +74,8 @@ type LgoRunner struct {
 	imports   map[string]*types.PkgName
 }
 
-func NewLgoRunner(gopath, lgopath string, sessID *SessionID) *LgoRunner {
+func NewLgoRunner(lgopath string, sessID *SessionID) *LgoRunner {
 	return &LgoRunner{
-		gopath:  gopath,
 		lgopath: lgopath,
 		sessID:  sessID,
 		vars:    make(map[string]types.Object),
@@ -90,7 +89,7 @@ func (rn *LgoRunner) ExecCount() int64 {
 
 func (rn *LgoRunner) cleanFiles(pkgPath string) {
 	// Delete src files
-	os.RemoveAll(path.Join(rn.gopath, "src", pkgPath))
+	os.RemoveAll(path.Join(build.Default.GOPATH, "src", pkgPath))
 	libname := "lib" + strings.Replace(pkgPath, "/", "-", -1) + ".so"
 	os.RemoveAll(path.Join(rn.lgopath, "pkg", libname))
 	os.RemoveAll(path.Join(rn.lgopath, "pkg", pkgPath))
@@ -186,7 +185,7 @@ func (rn *LgoRunner) Run(ctx core.LgoContext, src string) error {
 		// No declarations or expressions in the original source (e.g. only import statements).
 		return nil
 	}
-	pkgDir := path.Join(rn.gopath, "src", pkgPath)
+	pkgDir := path.Join(build.Default.GOPATH, "src", pkgPath)
 	if err := os.MkdirAll(pkgDir, 0766); err != nil {
 		return err
 	}
