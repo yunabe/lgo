@@ -359,6 +359,13 @@ var q Q = p
 			`,
 			want: []string{"xyz"},
 		}, {
+			name: "id_camel_case",
+			src: `
+			func testFunc(){}
+			testf[cur]
+			`,
+			want: []string{"testFunc"},
+		}, {
 			name: "id_partial",
 			src: `
 			abc := 100
