@@ -52,7 +52,7 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 
 ## Install
 - `go get github.com/yunabe/lgo/cmd/lgo && go get -d github.com/yunabe/lgo/cmd/lgo-internal`
-  - This installs `lgo` command into your `$GOPATH/bin`
+  - This installs `lgo` command into your `$(go env GOPATH)/bin`
 - Set `LGOPATH` environment variable
   - `lgo install` will install binaries into the directory specified with `LGOPATH`.
   - You can use any empty directory with write permission as `LGOPATH`.
@@ -67,7 +67,7 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
   - If `lgo installpkg` fails, please check the log stored in `$LGOPATH/installpkg.log`.
   - See [go's manual](https://golang.org/cmd/go/#hdr-Package_lists) about the format of `[packages]` args.
 - Install the kernel configuration to Jupyter Notebook
-  - `python $GOPATH/src/github.com/yunabe/lgo/bin/install_kernel`
+  - `python $(go env GOPATH)/src/github.com/yunabe/lgo/bin/install_kernel`
   - Make sure to use the same version of `python` as you used to install `jupyter`. For example, use `python3` instead of `python` if you install `jupyter` with `pip3`.
 
 ## Usage: Jupyter Notebook

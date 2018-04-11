@@ -6,13 +6,18 @@
 from __future__ import print_function
 
 import argparse
-import commands
 import json
 import os
 import sys
 
 from jupyter_client.kernelspec import KernelSpecManager
 from IPython.utils.tempdir import TemporaryDirectory
+
+if sys.version_info.major <= 2:
+    import commands
+else:
+    import subprocess as commands
+
 
 def install_kernel_spec(binary, user, prefix):
     kernel_json = {
