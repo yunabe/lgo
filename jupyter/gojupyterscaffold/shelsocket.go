@@ -10,7 +10,11 @@ import (
 	zmq "github.com/pebbe/zmq4"
 )
 
-var errLoopEnd = errors.New("end of loop")
+var (
+	errLoopEnd = errors.New("end of loop")
+	// emptyMetadata is set to Metadata in sendDisplayData if metadata is missing.
+	emptyMetadata = make(map[string]interface{})
+)
 
 type contextAndCancel struct {
 	ctx    context.Context
@@ -139,6 +143,12 @@ func (s *iopubSocket) sendDisplayData(data *DisplayData, parent *message, update
 			glog.Warning("update_display_data with no display_id")
 		}
 		msgType = "update_display_data"
+	}
+	if data.Metadata == nil {
+		var copy DisplayData
+		copy = *data
+		copy.Metadata = emptyMetadata
+		data = &copy
 	}
 	msg.Identity = [][]byte{[]byte(msgType)}
 	msg.Header.MsgType = msgType

@@ -98,8 +98,9 @@ type ExecuteResult struct {
 
 // DisplayData represents display_data defined in http://jupyter-client.readthedocs.io/en/latest/messaging.html#display-data
 //
-// omitempty is important not to output "metadata: null", which results in
-// Failed validating u'type' in display_data[u'properties'][u'metadata'] in Jupyter notebook.
+// Jupyter Notebook does not accept display_data with "metadata: null" (Failed validating u'type' in display_data[u'properties'][u'metadata'] in Jupyter notebook).
+// JupyterLab does not accept display_data if metadata is missing (Missing property 'metadata').
+// Thus, this package automatically sets an empty map to Metadata when it's encoded.
 //
 // c.f.
 // The definition of MIME-type and the right format of value:
@@ -109,7 +110,7 @@ type ExecuteResult struct {
 // https://github.com/jupyter/jupyter_client/blob/master/jupyter_client/adapter.py
 type DisplayData struct {
 	Data      map[string]interface{} `json:"data,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	Metadata  map[string]interface{} `json:"metadata"`
 	Transient map[string]interface{} `json:"transient,omitempty"`
 }
 
