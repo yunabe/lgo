@@ -46,7 +46,7 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 ## Prerequisites
 - lgo is supported only on Linux at this moment. On Windows or Mac OS, use virtual machines or dockers.
 - [Install Go 1.9 or Go 1.8](https://golang.org/doc/install).
-  - [Note for Go 1.10](#go1.10)
+  - [Note for Go 1.10](#go110)
 - Install [Jupyter Notebook](http://jupyter.readthedocs.io/en/latest/install.html)
 - [Install ZMQ](http://zeromq.org/distro:debian)
   - e.g. `sudo apt-get install libzmq3-dev`

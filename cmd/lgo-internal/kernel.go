@@ -120,7 +120,7 @@ func (d jupyterDisplayer) JavaScript(s string, id *string) {
 func (d jupyterDisplayer) HTML(s string, id *string)     { d.displayString("text/html", s, id) }
 func (d jupyterDisplayer) Markdown(s string, id *string) { d.displayString("text/markdown", s, id) }
 func (d jupyterDisplayer) Latex(s string, id *string)    { d.displayString("text/latex", s, id) }
-func (d jupyterDisplayer) SVG(s string, id *string)      { panic("Not implemented") }
+func (d jupyterDisplayer) SVG(s string, id *string)      { d.displayString("image/svg+xml", s, id) }
 func (d jupyterDisplayer) PNG(b []byte, id *string)      { d.displayBytes("image/png", b, id) }
 func (d jupyterDisplayer) JPEG(b []byte, id *string)     { d.displayBytes("image/jpeg", b, id) }
 func (d jupyterDisplayer) GIF(b []byte, id *string)      { d.displayBytes("image/gif", b, id) }
