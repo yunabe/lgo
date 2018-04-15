@@ -45,7 +45,8 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 # Install
 ## Prerequisites
 - lgo is supported only on Linux at this moment. On Windows or Mac OS, use virtual machines or dockers.
-- [Install Go 1.9 or Go 1.8](https://golang.org/doc/install)
+- [Install Go 1.9 or Go 1.8](https://golang.org/doc/install).
+  - [Note for Go 1.10](#go1.10)
 - Install [Jupyter Notebook](http://jupyter.readthedocs.io/en/latest/install.html)
 - [Install ZMQ](http://zeromq.org/distro:debian)
   - e.g. `sudo apt-get install libzmq3-dev`
@@ -154,6 +155,11 @@ b := make([]byte, 1 << 24)
 // This sets nil to the second b.
 b = nil
 ```
+
+## go1.10
+lgo works with go1.10. But the overhead of code execution is 4-5x larger in go1.10 than go1.9.
+It is due to [a regression of the cache mechnism of `go insatll` in go1.10](https://github.com/golang/go/issues/24034).
+I recommend you to use lgo with go1.9 until the bug is fixed in go1.10.
 
 # Comparisons with similar projects
 ## gore
