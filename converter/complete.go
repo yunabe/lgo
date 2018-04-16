@@ -144,7 +144,7 @@ func (v *isPosInFuncBodyVisitor) Visit(n ast.Node) ast.Visitor {
 }
 
 // isPosInFuncBody returns whether pos is inside a function body in lgo source.
-// Please call this method before any convertion on blk.
+// Please call this method before any conversion on blk.
 func isPosInFuncBody(blk *parser.LGOBlock, pos token.Pos) bool {
 	v := isPosInFuncBodyVisitor{pos: pos}
 	for _, stmt := range blk.Stmts {
