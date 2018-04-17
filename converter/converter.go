@@ -152,7 +152,7 @@ func convertToPhase1(blk *parser.LGOBlock) (out phase1Out) {
 			out.lastExpr = es
 			if _, ok := es.X.(*ast.CallExpr); !ok {
 				// If the last expr is not function call, wrap it with panic to avoid "is not used" error.
-				// You should not wrap function calls becuase panic(novalue()) is also invalid in Go.
+				// You should not wrap function calls because panic(novalue()) is also invalid in Go.
 				es.X = &ast.CallExpr{
 					Fun:  ast.NewIdent("panic"),
 					Args: []ast.Expr{es.X},
