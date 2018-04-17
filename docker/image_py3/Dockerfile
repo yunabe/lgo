@@ -28,10 +28,10 @@ WORKDIR ${HOME}
 RUN go get github.com/yunabe/lgo/cmd/lgo && go get -d github.com/yunabe/lgo/cmd/lgo-internal
 
 # Install packages used from example notebooks.
-RUN go get -u github.com/nfnt/resize gonum.org/v1/gonum/... gonum.org/v1/plot/...
+RUN go get -u github.com/nfnt/resize gonum.org/v1/gonum/... gonum.org/v1/plot/... github.com/wcharczuk/go-chart
 
 # Install lgo
-RUN lgo install && lgo installpkg github.com/nfnt/resize gonum.org/v1/gonum/... gonum.org/v1/plot/...
+RUN lgo install && lgo installpkg github.com/nfnt/resize gonum.org/v1/gonum/... gonum.org/v1/plot/... github.com/wcharczuk/go-chart
 RUN python3 $GOPATH/src/github.com/yunabe/lgo/bin/install_kernel
 
 # Notes:
