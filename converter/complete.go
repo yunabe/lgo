@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/yunabe/lgo/parser"
+	"regexp"
 )
 
 type completeTarget interface {
@@ -286,7 +287,8 @@ func completeWithChecker(target completeTarget, checker *types.Checker, pkg *typ
 }
 
 func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
-	match, start, end := complete(src, pos, conf)
+	match, start, end := removeGoAndDeferKeywordsAndComplete(src, pos, conf)
+
 	// case-insensitive sort
 	sort.Slice(match, func(i, j int) bool {
 		c := strings.Compare(strings.ToLower(match[i]), strings.ToLower(match[j]))
@@ -302,6 +304,35 @@ func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
 		}
 		return false
 	})
+	return match, start, end
+}
+
+func removePrefixesFromSource(src, prefix string, pos token.Pos) (string, token.Pos) {
+	re := regexp.MustCompile("([\n\t ]+|^)(?P<prefix>" + prefix + ")")
+	matchIndices := re.FindAllStringSubmatchIndex(src[:pos-1], -1)
+
+	if len(matchIndices) > 0 {
+		// Replacing the nearest prefix is sufficient
+		tokenPos := matchIndices[len(matchIndices) - 1]
+		if tokenPos[5] < int(pos) {
+			src = src[:tokenPos[4]] + src[tokenPos[5]:]
+			pos = token.Pos(int(pos) - len(prefix))
+		}
+	}
+
+	return src, pos
+}
+
+func removeGoAndDeferKeywordsAndComplete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
+	var tempPos token.Pos
+	src, tempPos = removePrefixesFromSource(src, "go ", pos)
+	src, tempPos = removePrefixesFromSource(src, "defer ", tempPos)
+
+	match, start, end := complete(src, tempPos, conf)
+
+	start += int(pos) - int(tempPos)
+	end += int(pos) - int(tempPos)
+
 	return match, start, end
 }
 
