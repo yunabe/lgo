@@ -58,6 +58,6 @@ func (r *utf8AwareReader) Read(p []byte) (int, error) {
 		}
 	}
 	// The last utf8.UTFMax bytes are invalid as UTF8. It means the data is not valid UTF8 string.
-	// Return everthing.
+	// Return everything.
 	return n, nil
 }
