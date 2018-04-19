@@ -158,7 +158,7 @@ b = nil
 
 ## go1.10
 lgo works with go1.10. But the overhead of code execution is 4-5x larger in go1.10 than go1.9.
-It is due to [a regression of the cache mechnism of `go insatll` in go1.10](https://github.com/golang/go/issues/24034).
+It is due to [a regression of the cache mechnism of `go install` in go1.10](https://github.com/golang/go/issues/24034).
 I recommend you to use lgo with go1.9 until the bug is fixed in go1.10.
 
 # Comparisons with similar projects
