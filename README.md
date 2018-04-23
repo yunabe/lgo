@@ -43,14 +43,13 @@ Open your temporary Jupyter Notebook from the button above and enjoy lgo.
 > cd lgo/docker/jupyter
 > docker-compose up -d
 ```
-3. Check the name of the container started with `docker-compose` (e.g. `jupyter_jupyter_1`).
-4. Get the URL to open the Jupyter Notebook
+3. Get the URL to open the Jupyter Notebook
 ```
-> docker exec jupyter_jupyter_1 jupyter notebook list
+> docker-compose exec jupyter jupyter notebook list
 Currently running servers:
 http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /examples
 ```
-5. Open the Jupyter Notebook server with the authentication token above.
+4. Open the Jupyter Notebook server with the authentication token above.
 
 
 # Install

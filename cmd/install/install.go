@@ -63,6 +63,10 @@ func NewSOInstaller(lgopath string) *SOInstaller {
 var knownIncompatiblePkgs = map[string]bool{
 	"golang.org/x/sys/plan9":                    true,
 	"github.com/derekparker/delve/cmd/dlv/cmds": true,
+	// Workaround for https://github.com/yunabe/lgo/issues/51
+	// Some libraries under k8s.io depend on this package indirectly by PopAny.
+	// https://godoc.org/k8s.io/apimachinery/pkg/util/sets#Byte.PopAny
+	"k8s.io/apimachinery/pkg/util/sets": true,
 }
 
 // Install
