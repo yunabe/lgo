@@ -247,7 +247,7 @@ var q Q = p
 				go bytes.sp[cur]`,
 			want: []string{"Split", "SplitAfter", "SplitAfterN", "SplitN"},
 		},{
-			name: "complete_go_with_defer_keyword",
+			name: "go_with_defer_keyword",
 			src: `
 			import (
 				"bytes"
@@ -258,7 +258,7 @@ var q Q = p
 			go bytes.sp[cur]`,
 			want: []string{"Split", "SplitAfter", "SplitAfterN", "SplitN"},
 		},{
-			name: "complete_defer_before_go_keyword",
+			name: "defer_before_go_keyword",
 			src: `
 			func foo(){
 			}
@@ -268,7 +268,7 @@ var q Q = p
 			go bar()`,
 			want: []string{"foo"},
 		},{
-			name: "complete_defer_between_2_go_keywords",
+			name: "defer_between_2_go_keywords",
 			src: `
 			func foo(){
 			}
@@ -279,7 +279,7 @@ var q Q = p
 			go bar()`,
 			want: []string{"foo"},
 		},{
-			name: "complete_non_go_defer_function_call_with_go_keyword",
+			name: "non_go_defer_function_call_with_go_keyword",
 			src: `
 			func foo(){
 			}

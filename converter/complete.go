@@ -4,14 +4,23 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/yunabe/lgo/parser"
-	"regexp"
 )
+
+var prefixRegex map[string]*regexp.Regexp
+
+func init() {
+	prefixRegex = map[string]*regexp.Regexp{
+		"go ":    regexp.MustCompile("^|[\n\t ]+(go )"),
+		"defer ": regexp.MustCompile("^|[\n\t ]+(defer )"),
+	}
+}
 
 type completeTarget interface {
 	completeTarget()
@@ -308,16 +317,17 @@ func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
 }
 
 func removePrefixesFromSource(src, prefix string, pos token.Pos) (string, token.Pos) {
-	re := regexp.MustCompile("([\n\t ]+|^)(?P<prefix>" + prefix + ")")
-	matchIndices := re.FindAllStringSubmatchIndex(src[:pos-1], -1)
+	matchIndices := prefixRegex[prefix].FindAllStringSubmatchIndex(src[:pos-1], -1)
 
-	if len(matchIndices) > 0 {
-		// Replacing the nearest prefix is sufficient
-		tokenPos := matchIndices[len(matchIndices) - 1]
-		if tokenPos[5] < int(pos) {
-			src = src[:tokenPos[4]] + src[tokenPos[5]:]
-			pos = token.Pos(int(pos) - len(prefix))
-		}
+	if len(matchIndices) == 0 {
+		return src, pos
+	}
+
+	// Replacing the nearest prefix is sufficient
+	tokenPos := matchIndices[len(matchIndices)-1]
+	if len(tokenPos) == 4 && tokenPos[2] != -1 && tokenPos[3] != -1 && tokenPos[3] < int(pos) {
+		src = src[:tokenPos[2]] + src[tokenPos[3]:]
+		pos = token.Pos(int(pos) - len(prefix))
 	}
 
 	return src, pos
