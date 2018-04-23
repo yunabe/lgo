@@ -41,6 +41,16 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 ```
 4. Open the Jupyter Notebook server with the authentication token above.
 
+## Linux/Mac OS
+If you are using Linux or Mac OS, you can use start/stop scripts instead. Web browser will open the URL automatically.
+
+```bash
+# start server
+> ./up.sh
+# stop server
+> ./down.sh
+```
+
 # Install
 ## Prerequisites
 - lgo is supported only on Linux at this moment. On Windows or Mac OS, use virtual machines or dockers.
