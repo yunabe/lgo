@@ -26,16 +26,6 @@ Thanks to [binder (mybinder.org)](https://mybinder.org/), you can try lgo on you
 Open your temporary Jupyter Notebook from the button above and enjoy lgo.
 
 # Quick Start with Docker
-## Linux, Mac OS
-1. Install [Docker](https://docs.docker.com/engine/installation/) and [Docker Compose](https://docs.docker.com/compose/).
-2. Clone the respository and run the docker container with `up.sh` script.
-```
-> git clone https://github.com/yunabe/lgo.git
-> cd lgo/docker/jupyter
-> ./up.sh
-```
-
-## Windows
 1. Install [Docker](https://docs.docker.com/engine/installation/) and [Docker Compose](https://docs.docker.com/compose/).
 2. Clone the respository and run the docker container with docker-compose.
 ```
@@ -51,6 +41,15 @@ http://0.0.0.0:8888/?token=50dfee7e328bf86e70c234a2f06021e1df63a19641c86676 :: /
 ```
 4. Open the Jupyter Notebook server with the authentication token above.
 
+## Linux/Mac OS
+If you are using Linux or Mac OS, you can use start/stop scripts instead. Web browser will open the URL automatically.
+
+```bash
+# start server
+> ./up.sh
+# stop server
+> ./down.sh
+```
 
 # Install
 ## Prerequisites
