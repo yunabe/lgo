@@ -1,0 +1,25 @@
+// first line comment
+
+// f is a func
+func f() {
+
+    //   f body
+}
+
+// g is a func
+func g() {}
+
+// h is a func
+func h() { /*do nothing*/ }
+
+// i is an int
+var i int
+
+type s struct {
+    n   float32
+    xy  int
+    abc string
+
+    // comment1
+    z   bool // comment2
+}

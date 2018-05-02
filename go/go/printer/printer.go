@@ -1073,7 +1073,12 @@ func (p *printer) printNode(node interface{}) error {
 		comments = cnode.Comments
 	}
 
-	if comments != nil {
+	if n, ok := node.(LGOStmtList); ok {
+		node = []ast.Stmt(n)
+		if comments != nil {
+			p.comments = comments
+		}
+	} else if comments != nil {
 		// commented node - restrict comment list to relevant range
 		n, ok := node.(ast.Node)
 		if !ok {
@@ -1328,6 +1333,9 @@ func (cfg *Config) fprint(output io.Writer, fset *token.FileSet, node interface{
 
 	return
 }
+
+// LGOStmtList is a special type to use go/printer from converter.Format.
+type LGOStmtList []ast.Stmt
 
 // A CommentedNode bundles an AST node and corresponding comments.
 // It may be provided as argument to any of the Fprint functions.

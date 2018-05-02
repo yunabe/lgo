@@ -1271,6 +1271,7 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 // printFinalResult converts the lgo final *ast.File into Go code. This function is almost identical to go/format.Node.
 // This custom function is necessary to handle comments in the first line properly.
 // See the results of "TestConvert_comment.* tests.
+// TODO: We may want to use modified version of go/printer as we do in Format in future.
 func printFinalResult(file *ast.File, fset *token.FileSet) (string, error) {
 	// c.f. func (p *printer) file(src *ast.File) in https://golang.org/src/go/printer/nodes.go
 	var buf bytes.Buffer
