@@ -319,6 +319,7 @@ func (s *shellSocket) handleMessages() error {
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal messages from %s: %v", s.name, err)
 	}
+	glog.Warningf("MsgType in %s: %q", s.name, msg.Header.MsgType)
 	switch typ := msg.Header.MsgType; typ {
 	case "kernel_info_request":
 		if err := s.sendKernelInfo(&msg); err != nil {
@@ -371,6 +372,22 @@ func (s *shellSocket) handleMessages() error {
 			res := newMessageWithParent(&msg)
 			res.Header.MsgType = "is_complete_reply"
 			res.Content = reply
+			s.pushResult(res)
+		}()
+	case "gofmt_request":
+		go func() {
+			res := newMessageWithParent(&msg)
+			res.Header.MsgType = "gofmt_reply"
+			reply, err := s.handlers.HandleGoFmt(msg.Content.(*GoFmtRequest))
+			if err != nil {
+				res.Content = &errorReply{
+					Status: "error",
+					Ename:  "error",
+					Evalue: err.Error(),
+				}
+			} else {
+				res.Content = reply
+			}
 			s.pushResult(res)
 		}()
 	default:

@@ -8,6 +8,7 @@ from __future__ import print_function
 import argparse
 import json
 import os
+import shutil
 import sys
 
 from jupyter_client.kernelspec import KernelSpecManager
@@ -29,7 +30,12 @@ def install_kernel_spec(binary, user, prefix):
         os.chmod(td, 0o755) # Starts off as 700, not user readable
         with open(os.path.join(td, 'kernel.json'), 'w') as f:
             json.dump(kernel_json, f, sort_keys=True)
-        # TODO: Copy any resources
+
+        resources = os.path.join(os.path.dirname(__file__), 'kernel_resources')
+        for item in os.listdir(resources):
+            src = os.path.join(resources, item)
+            if not os.path.isdir(src):
+                shutil.copy(src, os.path.join(td, item))
 
         print('Installing Jupyter kernel spec')
         KernelSpecManager().install_kernel_spec(td, 'lgo', user=user, replace=True, prefix=prefix)

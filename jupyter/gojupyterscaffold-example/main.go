@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"html"
@@ -97,6 +98,10 @@ func (*handlers) HandleInspect(req *scaffold.InspectRequest) *scaffold.InspectRe
 
 func (*handlers) HandleIsComplete(req *scaffold.IsCompleteRequest) *scaffold.IsCompleteReply {
 	return nil
+}
+
+func (*handlers) HandleGoFmt(req *scaffold.GoFmtRequest) (*scaffold.GoFmtReply, error) {
+	return nil, errors.New("not implemented")
 }
 
 func main() {

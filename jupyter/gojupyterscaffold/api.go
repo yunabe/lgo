@@ -15,6 +15,7 @@ type RequestHandlers interface {
 	HandleInspect(req *InspectRequest) *InspectReply
 	// http://jupyter-client.readthedocs.io/en/latest/messaging.html#code-completeness
 	HandleIsComplete(req *IsCompleteRequest) *IsCompleteReply
+	HandleGoFmt(req *GoFmtRequest) (*GoFmtReply, error)
 }
 
 type KernelInfo struct {
@@ -38,6 +39,13 @@ type ExecuteRequest struct {
 	StoreHistory bool   `json:"store_history"`
 	AllowStdin   bool   `json:"allow_stdin"`
 	StopOnError  bool   `json:"stop_on_error"`
+}
+
+// See http://jupyter-client.readthedocs.io/en/stable/messaging.html#request-reply
+type errorReply struct {
+	Status string `json:"status"` // status must be always "error"
+	Ename  string `json:"ename,omitempty"`
+	Evalue string `json:"evalue,omitempty"`
 }
 
 // See http://jupyter-client.readthedocs.io/en/latest/messaging.html#introspection
@@ -129,4 +137,13 @@ type IsCompleteReply struct {
 	// and use their own autoindentation rules. For other statuses, this
 	// field does not exist.
 	Indent string `json:"indent"`
+}
+
+type GoFmtRequest struct {
+	Code string `json:"code"`
+}
+
+type GoFmtReply struct {
+	Status string `json:"status"`
+	Code   string `json:"code"`
 }

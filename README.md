@@ -84,6 +84,7 @@ If you are using Linux or Mac OS, you can use start/stop scripts instead. Web br
 - Run `jupyter notebook` command to start Juyputer Notebook and select "Go (lgo)" from New Notebook menu.
 - To show documents of packages, functions and variables in your code, move the cursor to the identifier you want to inspect and press `Shift-Tab`.
 - Press `Tab` to complete code
+- Click `Format Go` button in the toolbar to format code.
 - lgo works with [JupyterLab](https://github.com/jupyterlab/jupyterlab). To use lgo from JupyterLab, install JupyterLab and run `jupyter lab`.
 
 <img width="400" height="225" src="doc/inspect.jpg">
@@ -195,25 +196,25 @@ gore is a CLI tool and it does not support Jupyter Notebook.
 |Backend|gc (go compiler)|An unofficial interpreter|
 |Full Go Language Specs|:heavy_check_mark:||
 |100% gc compatible|:heavy_check_mark:||
-|Type Safety|:heavy_check_mark:||
+|Static typing|:heavy_check_mark:|to some extent|
 |Performance|Fast|Slow|
 |Overhead|500ms|1ms|
 |[Cancellation](https://github.com/yunabe/lgo/blob/master/README.md#cancellation)|:heavy_check_mark:||
 |Code completion|:heavy_check_mark:||
 |Code inspection|:heavy_check_mark:||
+|Code formatting|:heavy_check_mark:||
 |[Display HTML and images](https://github.com/yunabe/lgo/blob/master/README.md#display-html-and-images)|:heavy_check_mark:||
 |Windows, Mac|Use Docker or VM|Partial|
 |License|BSD|LGPL|
 
-[gophernotes](https://github.com/gopherdata/gophernotes) is the first Jupyter kernel for Go, released in Jan 2016.
+gophernotes was the first Jupyter kernel for Go, released in Jan 2016.
 Before [Sep 2017](https://github.com/gopherdata/gophernotes/commit/69792d8af799d6905e2c576164d1a189ac021784#diff-04c6e90faac2675aa89e2176d2eec7d8), it used the same technology gore uses to evaluate Go code. This means it did not fit to heavy data processing or data analysis at all.
-From Sep 2017, gophernotes switched from `go run` approach to [gomacro](https://github.com/cosmos72/gomacro), one of unofficial golang interpreters by [cosmos72](https://github.com/cosmos72). This solved the problem gore has. Now, gophernotes is a great tool for data science in Go.
+From Sep 2017, gophernotes switched from `go run` approach to [gomacro](https://github.com/cosmos72/gomacro), one of unofficial golang interpreters by [cosmos72](https://github.com/cosmos72). This solved the problem gore has. Now, the code execution mechnism of gophernotes also fits to heavy data analysis.
 
 The shortcomings of using an unofficial interpreter are
 - It does not support all Go language features. Especially, it does not support one of the most important Go feature, `interface`.
   As of go1.10, it is hard to support `interface` in an interpreter written in Go because of the lack of API in `reflect` package.
 - Interpreters are generally slow.
-- Type unsafe. At least, gomacro is not statically typed.
 - Unofficial interpreters are not well-tested compared to the official gc (go compiler) tools.
 
 The advantages of this approach are

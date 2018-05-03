@@ -17,6 +17,7 @@ import (
 	"github.com/yunabe/lgo/cmd/lgo-internal/liner"
 	"github.com/yunabe/lgo/cmd/runner"
 	"github.com/yunabe/lgo/core"
+	"github.com/yunabe/lgo/converter"
 	scaffold "github.com/yunabe/lgo/jupyter/gojupyterscaffold"
 )
 
@@ -240,6 +241,17 @@ func (*handlers) HandleIsComplete(req *scaffold.IsCompleteRequest) *scaffold.IsC
 	return &scaffold.IsCompleteReply{
 		Status: "complete",
 	}
+}
+
+func (*handlers) HandleGoFmt(req *scaffold.GoFmtRequest) (*scaffold.GoFmtReply, error) {
+	formatted, err := converter.Format(req.Code)
+	if err != nil {
+		return nil, err
+	}
+	return &scaffold.GoFmtReply{
+		Status: "ok",
+		Code: formatted,
+	}, nil
 }
 
 // kernelLogWriter forwards messages to the current os.Stderr, which is change on every execution.
