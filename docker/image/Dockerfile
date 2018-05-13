@@ -5,6 +5,13 @@ FROM golang:1.9
 RUN apt-get update && apt-get install -y libzmq3-dev python-pip && rm -rf /var/lib/apt/lists/*
 RUN pip install --upgrade pip && hash -r pip && pip install -U jupyter jupyterlab && jupyter serverextension enable --py jupyterlab --sys-prefix
 
+# Install lgo Jupyter lab extension to support code formatting.
+# Please remove this line if you do not use JupyterLab.
+RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - && \
+  apt-get install -y nodejs && \
+  jupyter labextension install @yunabe/lgo_extension && jupyter lab clean && \
+  apt-get remove -y nodejs --purge && rm -rf /var/lib/apt/lists/*
+
 # Support UTF-8 filename in Python (https://stackoverflow.com/a/31754469)
 ENV LC_CTYPE=C.UTF-8
 
