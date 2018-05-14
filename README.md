@@ -33,6 +33,9 @@ Open your temporary Jupyter Notebook from the button above and enjoy lgo.
 > cd lgo/docker/jupyter
 > docker-compose up -d
 ```
+
+If you want to use a port other than `8888` on host, update ports config in `lgo/docker/jupyter/docker-compose.yaml` before running `docker-compose up`.
+
 3. Get the URL to open the Jupyter Notebook
 ```
 > docker-compose exec jupyter jupyter notebook list
