@@ -222,3 +222,8 @@ func (s *Server) Loop() {
 
 	// TODO: Support stdin.
 }
+
+func (s *Server) ExecuteScript(src string) {
+	req := &message{Content: &ExecuteRequest{Code: src}}
+	s.execQueue.queue <- &executeQueueItem{req, s.shell}
+}

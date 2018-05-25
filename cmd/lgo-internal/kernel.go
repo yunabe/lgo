@@ -5,10 +5,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
+	"os/user"
+	"path"
+	"path/filepath"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -16,10 +21,12 @@ import (
 	"github.com/golang/glog"
 	"github.com/yunabe/lgo/cmd/lgo-internal/liner"
 	"github.com/yunabe/lgo/cmd/runner"
-	"github.com/yunabe/lgo/core"
 	"github.com/yunabe/lgo/converter"
+	"github.com/yunabe/lgo/core"
 	scaffold "github.com/yunabe/lgo/jupyter/gojupyterscaffold"
 )
+
+const jupyterStartupDirectoryPath = ".ipython/profile_default/startup"
 
 type handlers struct {
 	runner    *runner.LgoRunner
@@ -250,7 +257,7 @@ func (*handlers) HandleGoFmt(req *scaffold.GoFmtRequest) (*scaffold.GoFmtReply, 
 	}
 	return &scaffold.GoFmtReply{
 		Status: "ok",
-		Code: formatted,
+		Code:   formatted,
 	}, nil
 }
 
@@ -270,9 +277,49 @@ func kernelMain(lgopath string, sessID *runner.SessionID) {
 		glog.Fatalf("Failed to create a server: %v", err)
 	}
 
+	loadStartupScripts(server)
+
 	// Start the server loop
 	server.Loop()
 	// clean-up
 	glog.Infof("Clean the session: %s", sessID.Marshal())
 	runner.CleanSession(lgopath, sessID)
+}
+
+func loadStartupScripts(server *scaffold.Server) {
+	u, err := user.Current()
+	if err != nil {
+		glog.Errorf("Error while fetching current user directory: %v\n", err)
+		return
+	}
+
+	profileDirPath := path.Join(u.HomeDir, jupyterStartupDirectoryPath)
+	fileNames, err := ioutil.ReadDir(profileDirPath)
+	if err != nil {
+		glog.Errorf("Error while reading startup files from the profile directory: %v\n", err)
+		return
+	}
+
+	var files []string
+	for _, file := range fileNames {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".go" {
+			files = append(files, file.Name())
+		}
+	}
+
+	if files == nil || len(files) == 0 {
+		glog.Info("No startup files found, returning")
+		return
+	}
+
+	sort.Strings(files)
+	for _, file := range files {
+		code, err := ioutil.ReadFile(path.Join(profileDirPath, file))
+		if err != nil {
+			glog.Errorf("Error while loading startup file %s: %+v", file, err)
+			continue
+		}
+		server.ExecuteScript(string(code))
+		glog.Infof("Loaded %s\n", file)
+	}
 }
