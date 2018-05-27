@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -16,8 +17,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/yunabe/lgo/cmd/lgo-internal/liner"
 	"github.com/yunabe/lgo/cmd/runner"
-	"github.com/yunabe/lgo/core"
 	"github.com/yunabe/lgo/converter"
+	"github.com/yunabe/lgo/core"
 	scaffold "github.com/yunabe/lgo/jupyter/gojupyterscaffold"
 )
 
@@ -97,6 +98,19 @@ func (d jupyterDisplayer) display(data *scaffold.DisplayData, id *string) {
 		data.Transient["display_id"] = *id
 	}
 	d(data, update)
+}
+
+func (d jupyterDisplayer) Raw(contentType string, v interface{}, id *string) error {
+	_, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	d.display(&scaffold.DisplayData{
+		Data: map[string]interface{}{
+			contentType: v,
+		},
+	}, id)
+	return nil
 }
 
 func (d jupyterDisplayer) displayString(contentType, content string, id *string) {
@@ -250,7 +264,7 @@ func (*handlers) HandleGoFmt(req *scaffold.GoFmtRequest) (*scaffold.GoFmtReply, 
 	}
 	return &scaffold.GoFmtReply{
 		Status: "ok",
-		Code: formatted,
+		Code:   formatted,
 	}, nil
 }
 

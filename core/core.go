@@ -61,6 +61,7 @@ type DataDisplayer interface {
 	GIF(b []byte, id *string)
 	PDF(b []byte, id *string)
 	Text(s string, id *string)
+	Raw(contentType string, v interface{}, id *string) error
 }
 
 type resultCounter struct {
