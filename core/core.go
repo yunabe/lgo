@@ -89,17 +89,18 @@ func (c *resultCounter) recordResult(r interface{}) {
 		return
 	}
 	if r == Bailout {
-		c.cancel += 1
+		c.cancel++
 		return
 	}
 	fmt.Fprintf(os.Stderr, "panic: %v\n\n%s", r, debug.Stack())
-	c.fail += 1
+	c.fail++
 }
 
 func (c *resultCounter) recordResultInDefer() {
 	c.recordResult(recover())
 }
 
+// ExecutionState maintains the state of the current code execution in lgo.
 type ExecutionState struct {
 	Context   LgoContext
 	cancelCtx func()
@@ -207,6 +208,9 @@ func init() {
 	canceledCtx = LgoContext{Context: ctx}
 }
 
+// GetExecContext returns the context of the current code execution.
+// It returns a canceled context when lgo does not execute any code blocks.
+// _ctx in lgo is converted to this function internally.
 func GetExecContext() LgoContext {
 	if e := getExecState(); e != nil {
 		return e.Context
@@ -234,6 +238,7 @@ func resetExecState(e *ExecutionState) {
 	}
 }
 
+// ExecLgoEntryPoint executes main under a new code execution context which is derived from parent.
 func ExecLgoEntryPoint(parent LgoContext, main func()) error {
 	return finalizeExec(startExec(parent, main))
 }
@@ -262,16 +267,19 @@ func finalizeExec(e *ExecutionState) error {
 	return nil
 }
 
-func InitGoroutine() (e *ExecutionState) {
-	e = getExecState()
+// InitGoroutine is called internally before lgo starts a new goroutine
+// so that lgo can manage goroutines.
+func InitGoroutine() *ExecutionState {
+	e := getExecState()
 	if e == nil {
-		return
+		return nil
 	}
 	e.routineWait.Add(1)
 	e.subCounter.add()
-	return
+	return e
 }
 
+// FinalizeGoroutine is called when a goroutine invoked in lgo quits.
 func FinalizeGoroutine(e *ExecutionState) {
 	r := recover()
 	e.subCounter.recordResult(r)
@@ -283,14 +291,19 @@ func FinalizeGoroutine(e *ExecutionState) {
 	return
 }
 
+// LgoPrinter is the interface that prints the result of the last lgo expression.
 type LgoPrinter interface {
 	Println(args ...interface{})
 }
 
 var lgoPrinters = make(map[LgoPrinter]bool)
 
+// Bailout is thrown to cancel lgo code execution internally.
+// Bailout is exported to be used from converted code (See converter/autoexit.go).
 var Bailout = errors.New("canceled")
 
+// ExitIfCtxDone checkes the current code execution status and throws Bailout to exit the execution
+// if the execution is canceled.
 func ExitIfCtxDone() {
 	running := atomic.LoadUint32(&isRunning)
 	if running == 1 {
@@ -304,22 +317,30 @@ func ExitIfCtxDone() {
 	default:
 	}
 }
+
+// RegisterLgoPrinter registers a LgoPrinter to print the result of the last lgo expression.
 func RegisterLgoPrinter(p LgoPrinter) {
 	lgoPrinters[p] = true
 }
 
+// UnregisterLgoPrinter removes a registered LgoPrinter.
 func UnregisterLgoPrinter(p LgoPrinter) {
 	delete(lgoPrinters, p)
 }
 
+// LgoPrintln prints args with registered LgoPrinters.
 func LgoPrintln(args ...interface{}) {
 	for p := range lgoPrinters {
 		p.Println(args...)
 	}
 }
 
+// AllVars keeps pointers to all variables defined in the current lgo process.
+// AllVars is keyed by variable names.
 var AllVars = make(map[string][]interface{})
 
+// ZeroClearAllVars clear all existing variables defined in lgo with zero-values.
+// You can release memory holded from old variables easily with this function.
 func ZeroClearAllVars() {
 	for _, vars := range AllVars {
 		for _, p := range vars {
@@ -332,6 +353,7 @@ func ZeroClearAllVars() {
 	runtime.GC()
 }
 
+// LgoRegisterVar is used to register a variable to AllVars internally.
 func LgoRegisterVar(name string, p interface{}) {
 	v := reflect.ValueOf(p)
 	if v.Kind() != reflect.Ptr {

@@ -295,6 +295,7 @@ func completeWithChecker(target completeTarget, checker *types.Checker, pkg *typ
 	return nil, 0, 0
 }
 
+// Complete returns a list of candidates of code completion.
 func Complete(src string, pos token.Pos, conf *Config) ([]string, int, int) {
 	match, start, end := removeGoAndDeferKeywordsAndComplete(src, pos, conf)
 
