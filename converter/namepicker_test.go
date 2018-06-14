@@ -8,7 +8,7 @@ import (
 
 func TestNamePicker(t *testing.T) {
 	picker := newNamePicker(map[*ast.Ident]types.Object{
-		&ast.Ident{Name: "y"}: nil,
+		{Name: "y"}: nil,
 	})
 	x := picker.NewName("x")
 	x0 := picker.NewName("x")

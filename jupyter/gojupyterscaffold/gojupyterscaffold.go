@@ -146,7 +146,7 @@ func (s *Server) monitorSigint() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT)
 	go func() {
-		for _ = range ch {
+		for range ch {
 			glog.Info("Received SIGINT. Cancelling an ongoing execute_request")
 			s.execQueue.cancelCurrent()
 		}
