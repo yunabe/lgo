@@ -3,6 +3,9 @@
 
 Go (golang) Jupyter Notebook kernel and an interactive REPL
 
+## Medium Post
+- [Go (golang) Jupyter Notebook kernel and an interactive REPL - April 16, 2018](https://medium.com/@yunabe/interactive-go-programming-with-jupyter-93fbf089aff1)
+
 # Features
 - Write and execute Go (golang) interactively like Python.
 - Jupyter Notebook integration
