@@ -53,6 +53,8 @@ func (ci *connectionInfo) getAddr(port int) string {
 	return fmt.Sprintf("%s://%s:%d", ci.Transport, ci.IP, port)
 }
 
+// A Server is a jupyter kernel server that that handles user commands forwarded from
+// Jupyter frontend servers.
 type Server struct {
 	handlers RequestHandlers
 

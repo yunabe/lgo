@@ -2,6 +2,9 @@ package gojupyterscaffold
 
 import "context"
 
+// RequestHandlers is the interface to define handlers to handle Jupyter messages.
+// Except for HandleGoFmt, all mesages are defined in
+// http://jupyter-client.readthedocs.io/en/latest/messaging.html
 type RequestHandlers interface {
 	HandleKernelInfo() KernelInfo
 	// HandleExecuteRequest handles execute_request.
@@ -18,6 +21,7 @@ type RequestHandlers interface {
 	HandleGoFmt(req *GoFmtRequest) (*GoFmtReply, error)
 }
 
+// KernelInfo is a reply to kernel_info_request.
 type KernelInfo struct {
 	ProtocolVersion       string             `json:"protocol_version"`
 	Implementation        string             `json:"implementation"`
@@ -26,6 +30,7 @@ type KernelInfo struct {
 	Banner                string             `json:"banner"`
 }
 
+// KernelLanguageInfo represents language_info in kernel_info_reply.
 type KernelLanguageInfo struct {
 	Name          string `json:"name"`
 	Version       string `json:"version"`
@@ -33,6 +38,7 @@ type KernelLanguageInfo struct {
 	FileExtension string `json:"file_extension"`
 }
 
+// ExecuteRequest is the struct to represent execute_request.
 type ExecuteRequest struct {
 	Code         string `json:"code"`
 	Silent       bool   `json:"silent"`
@@ -48,6 +54,7 @@ type errorReply struct {
 	Evalue string `json:"evalue,omitempty"`
 }
 
+// InspectRequest represents inspect_request.
 // See http://jupyter-client.readthedocs.io/en/latest/messaging.html#introspection
 type InspectRequest struct {
 	Code      string `json:"code"`
@@ -59,6 +66,7 @@ type InspectRequest struct {
 	DetailLevel int `json:"detail_level"`
 }
 
+// InspectReply represents inspect_reply.
 // See http://jupyter-client.readthedocs.io/en/latest/messaging.html#introspection
 type InspectReply struct {
 	// 'ok' if the request succeeded or 'error', with error information as in all other replies.
@@ -69,6 +77,7 @@ type InspectReply struct {
 	Data map[string]interface{} `json:"data,omitempty"`
 }
 
+// CompleteRequest represents complete_request.
 // http://jupyter-client.readthedocs.io/en/latest/messaging.html#completion
 type CompleteRequest struct {
 	// The code context in which completion is requested
@@ -79,6 +88,7 @@ type CompleteRequest struct {
 	CursorPos int `json:"cursor_pos"`
 }
 
+// CompleteReply represents complete_reply.
 type CompleteReply struct {
 	// The list of all matches to the completion request, such as
 	// ['a.isalnum', 'a.isalpha'] for the above example.
@@ -97,7 +107,8 @@ type CompleteReply struct {
 	Status string `json:"status"`
 }
 
-// http://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results
+// ExecuteResult represents execute_result.
+// See http://jupyter-client.readthedocs.io/en/latest/messaging.html#execution-results
 type ExecuteResult struct {
 	Status         string `json:"status"`
 	ExecutionCount int    `json:"execution_count,omitempty"`
@@ -122,12 +133,14 @@ type DisplayData struct {
 	Transient map[string]interface{} `json:"transient,omitempty"`
 }
 
+// IsCompleteRequest represents is_complete_request.
 // http://jupyter-client.readthedocs.io/en/latest/messaging.html#code-completeness
 type IsCompleteRequest struct {
 	// The code entered so far as a multiline string
 	Code string `json:"code"`
 }
 
+// IsCompleteReply represents is_complete_reply.
 // http://jupyter-client.readthedocs.io/en/latest/messaging.html#code-completeness
 type IsCompleteReply struct {
 	// One of 'complete', 'incomplete', 'invalid', 'unknown'
@@ -139,10 +152,12 @@ type IsCompleteReply struct {
 	Indent string `json:"indent"`
 }
 
+// GoFmtRequest is the struct to represent "go fmt" request.
 type GoFmtRequest struct {
 	Code string `json:"code"`
 }
 
+// GoFmtReply is the struct to represent "go fmt" reply.
 type GoFmtReply struct {
 	Status string `json:"status"`
 	Code   string `json:"code"`
