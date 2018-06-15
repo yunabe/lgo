@@ -1,5 +1,4 @@
-# lgo
-[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master?filepath=basics.ipynb)
+# lgo [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master?filepath=basics.ipynb) [![Go Report Card](https://goreportcard.com/badge/github.com/yunabe/lgo)](https://goreportcard.com/report/github.com/yunabe/lgo) [![cover.run](https://cover.run/go/https:/github.com/yunabe/lgo.svg?style=flat&tag=golang-1.9)](https://cover.run/go?tag=golang-1.9&repo=https%3A%2Fgithub.com%2Fyunabe%2Flgo)
 
 Go (golang) Jupyter Notebook kernel and an interactive REPL
 
