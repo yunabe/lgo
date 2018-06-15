@@ -23,18 +23,23 @@ const lgoInitFuncName = "lgo_init"
 const lgoPackageName = "lgo_exec" // TODO: Set a proper name.
 const runCtxName = "_ctx"
 
-var lgoImporter types.Importer = importer.Default()
+var lgoImporter = importer.Default()
 
+// SetLGOImporter sets a global types.Importer used in this package.
+// This method is used in cmd/lgo-internal to install missing .a files to the system.
 func SetLGOImporter(im types.Importer) {
 	lgoImporter = im
 }
 
+// PackageArchiveInstaller is the interface that is used to install .a files of packages
+// used in lgo code before static code analysis.
 type PackageArchiveInstaller interface {
 	Install(pkgs []string) error
 }
 
-var pkgAInstaller PackageArchiveInstaller = nil
+var pkgAInstaller PackageArchiveInstaller
 
+// SetPackageArchiveInstaller sets a global PackageArchiveInstaller used in the current process.
 func SetPackageArchiveInstaller(i PackageArchiveInstaller) {
 	pkgAInstaller = i
 }
@@ -442,6 +447,7 @@ func varSpecFromIdent(immg *importManager, pkg *types.Package, ident *ast.Ident,
 	}
 }
 
+// A Config node controls the spec of Convert function.
 type Config struct {
 	Olds         []types.Object
 	OldImports   []*types.PkgName
@@ -452,6 +458,7 @@ type Config struct {
 	RegisterVars bool
 }
 
+// A ConvertResult is a result of code conversion by Convert.
 type ConvertResult struct {
 	Src     string
 	Pkg     *types.Package
@@ -778,6 +785,7 @@ func getDocOrGoDocQuery(obj types.Object, isLocal bool) (doc string, query *goDo
 	return
 }
 
+// Convert converts a lgo source to a valid Go source.
 func Convert(src string, conf *Config) *ConvertResult {
 	fset, blk, err := parseLesserGoString(src)
 	if err != nil {
