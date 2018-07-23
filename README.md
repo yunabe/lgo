@@ -64,6 +64,8 @@ If you are using Linux or Mac OS, you can use start/stop scripts instead. Web br
 - Install [Jupyter Notebook](http://jupyter.readthedocs.io/en/latest/install.html)
 - [Install ZMQ](http://zeromq.org/distro:debian)
   - e.g. `sudo apt-get install libzmq3-dev`
+- [Install pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+  - e.g. `sudo apt-get install pkg-config`
 
 ## Install
 - `go get github.com/yunabe/lgo/cmd/lgo && go get -d github.com/yunabe/lgo/cmd/lgo-internal`
