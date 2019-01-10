@@ -1106,7 +1106,7 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 	if conf.AutoExitCode {
 		injectAutoExitToFile(file, immg)
 	}
-	capturePanicInGoRoutine(file, immg, checker.Defs)
+	capturePanicInGoRoutine(file, immg, checker)
 
 	// Import lgo packages implicitly referred code inside functions.
 	var newDecls []ast.Decl
@@ -1208,9 +1208,9 @@ func finalCheckAndRename(file *ast.File, fset *token.FileSet, conf *Config) (str
 	return finalSrc, pkg, checker, deps, nil
 }
 
-func capturePanicInGoRoutine(file *ast.File, immg *importManager, defs map[*ast.Ident]types.Object) {
-	picker := newNamePicker(defs)
-	ast.Walk(&wrapGoStmtVisitor{immg, picker}, file)
+func capturePanicInGoRoutine(file *ast.File, immg *importManager, checker *types.Checker) {
+	picker := newNamePicker(checker.Defs)
+	ast.Walk(&wrapGoStmtVisitor{immg, picker, checker}, file)
 }
 
 // wrapGoStmtVisitor injects code to wrap go statements.
@@ -1223,8 +1223,47 @@ func capturePanicInGoRoutine(file *ast.File, immg *importManager, defs map[*ast.
 //   f(x, y)
 // }()
 type wrapGoStmtVisitor struct {
-	immg   *importManager
-	picker *namePicker
+	immg    *importManager
+	picker  *namePicker
+	checker *types.Checker
+}
+
+func (v *wrapGoStmtVisitor) genFuncType(sig *types.Signature) ([]ast.Expr, *ast.FuncType) {
+	params := sig.Params()
+	len := params.Len()
+
+	var args []ast.Expr
+	var fields []*ast.Field
+	for i := 0; i < len; i++ {
+		argTyp := params.At(i).Type()
+		var typExp ast.Expr
+		if i == len-1 && sig.Variadic() {
+			if s, ok := argTyp.(*types.Slice); ok {
+				typStr := types.TypeString(s.Elem(),
+					func(pkg *types.Package) string {
+						return v.immg.shortName(pkg)
+					})
+				typExp = &ast.Ellipsis{Elt: &ast.Ident{Name: typStr}}
+			} else {
+				panic("internal error: slice type expected")
+			}
+		} else {
+			typStr := types.TypeString(argTyp,
+				func(pkg *types.Package) string {
+					return v.immg.shortName(pkg)
+				})
+			typExp = &ast.Ident{Name: typStr}
+		}
+		arg := v.picker.NewName("goarg")
+		args = append(args, &ast.Ident{Name: arg})
+		fields = append(fields, &ast.Field{
+			Names: []*ast.Ident{{Name: arg}},
+			Type:  typExp,
+		})
+	}
+	return args, &ast.FuncType{
+		Params: &ast.FieldList{List: fields},
+	}
 }
 
 func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
@@ -1239,38 +1278,60 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 		if !ok {
 			continue
 		}
+		fnName := v.picker.NewName("gofn")
+		body := []ast.Stmt{
+			&ast.AssignStmt{
+				Lhs: []ast.Expr{&ast.Ident{Name: fnName}},
+				Rhs: []ast.Expr{g.Call.Fun},
+				Tok: token.DEFINE,
+			},
+		}
 		ectx := v.picker.NewName("ectx")
-		fu := &ast.FuncLit{
-			Type: &ast.FuncType{},
-			Body: &ast.BlockStmt{
-				List: []ast.Stmt{
-					&ast.DeferStmt{
-						Call: &ast.CallExpr{
-							Fun: &ast.SelectorExpr{
-								X:   &ast.Ident{Name: v.immg.shortName(corePkg)},
-								Sel: &ast.Ident{Name: "FinalizeGoroutine"},
-							},
-							Args: []ast.Expr{&ast.Ident{Name: ectx}},
-						},
-					},
-					&ast.ExprStmt{X: g.Call},
-				},
-			},
-		}
-		g.Call = &ast.CallExpr{Fun: fu}
+		var bindBody []ast.Stmt
+		bindBody = append(bindBody, &ast.AssignStmt{
+			Lhs: []ast.Expr{&ast.Ident{Name: ectx}},
+			Rhs: []ast.Expr{&ast.CallExpr{
+				Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".InitGoroutine"),
+			}},
+			Tok: token.DEFINE,
+		})
 
-		b.List[i] = &ast.BlockStmt{
-			List: []ast.Stmt{
-				&ast.AssignStmt{
-					Lhs: []ast.Expr{&ast.Ident{Name: ectx}},
-					Rhs: []ast.Expr{&ast.CallExpr{
-						Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".InitGoroutine"),
-					}},
-					Tok: token.DEFINE,
+		args, funTyp := v.genFuncType(v.checker.Types[g.Call.Fun].Type.(*types.Signature))
+
+		bindBody = append(bindBody, &ast.GoStmt{
+			Call: &ast.CallExpr{Fun: &ast.FuncLit{
+				Type: &ast.FuncType{},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.DeferStmt{
+							Call: &ast.CallExpr{
+								Fun: &ast.SelectorExpr{
+									X:   &ast.Ident{Name: v.immg.shortName(corePkg)},
+									Sel: &ast.Ident{Name: "FinalizeGoroutine"},
+								},
+								Args: []ast.Expr{&ast.Ident{Name: ectx}},
+							},
+						},
+						&ast.ExprStmt{X: &ast.CallExpr{
+							Fun:  &ast.Ident{Name: fnName},
+							Args: args,
+						}},
+					},
 				},
-				g,
+			}},
+		})
+		body = append(body, &ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun: &ast.FuncLit{
+					Type: funTyp,
+					Body: &ast.BlockStmt{
+						List: bindBody,
+					},
+				},
+				Args: g.Call.Args,
 			},
-		}
+		})
+		b.List[i] = &ast.BlockStmt{List: body}
 	}
 	// Do not visit this node again.
 	return nil
