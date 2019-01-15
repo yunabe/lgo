@@ -1,0 +1,20 @@
+package lgo_exec
+
+import pkg0 "github.com/yunabe/lgo/core"
+import "fmt"
+func lgo_init() {
+
+	for i := 0; i < 10; i++ {
+		{
+			gofn := func(id int) {
+				fmt.Println("id =", id)
+			}
+			goarg := i
+			ectx := pkg0.InitGoroutine()
+			go func() {
+				defer pkg0.FinalizeGoroutine(ectx)
+				gofn(goarg)
+			}()
+		}
+	}
+}

@@ -2,6 +2,7 @@ package converter
 
 import (
 	"flag"
+	"fmt"
 	"go/ast"
 	"go/importer"
 	"go/types"
@@ -766,17 +767,52 @@ func TestConvert_registerVarsVarOnly(t *testing.T) {
 }
 
 func TestConvert_wrapGoStmt(t *testing.T) {
-	result := Convert(`
-	f := func(x, y int) int { return x + y }
-	go func(x int){
-		go f(x, 20)
-	}(10)
-	`, &Config{LgoPkgPath: "lgo/pkg0", RegisterVars: true})
-	if result.Err != nil {
-		t.Error(result.Err)
-		return
+	tests := []struct {
+		name string
+		code string
+	}{
+		{
+			name: "bind", code: `
+import "fmt"
+for i := 0; i < 10; i++ {
+  go func(id int) {
+    fmt.Println("id =", id)
+  }(i)
+}`}, {
+			name: "nest", code: `
+f := func(x, y int) int { return x + y }
+go func(x int){
+  go f(x, 20)
+}(10)`}, {
+			name: "multiret", code: `
+import "fmt"
+func xy(x, y int) {
+  fmt.Println(x, y)
+}
+func two() (int, int) {
+  return 3, 4
+}
+go xy(two())`}, {
+			name: "ellipsis", code: `
+import "fmt"
+func xy(arg ...int) {
+  fmt.Println(arg)
+}
+func array() []int {
+  return []int{3, 4}
+}
+go xy(array()...)`},
 	}
-	checkGolden(t, result.Src, "testdata/wrap_gostmt.golden")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Convert(tt.code, &Config{LgoPkgPath: "lgo/pkg0", RegisterVars: true})
+			if result.Err != nil {
+				t.Error(result.Err)
+				return
+			}
+			checkGolden(t, result.Src, fmt.Sprintf("testdata/wrap_gostmt_%s.golden", tt.name))
+		})
+	}
 }
 
 // Demostrates how converter keeps comments.

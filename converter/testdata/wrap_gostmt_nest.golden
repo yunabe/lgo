@@ -1,0 +1,30 @@
+package lgo_exec
+
+import pkg0 "github.com/yunabe/lgo/core"
+func lgo_init() {
+	pkg0.LgoRegisterVar("f", &f)
+	f = func(x, y int) int { return x + y }
+	{
+		gofn0 := func(x int) {
+			{
+				gofn := f
+				goarg := x
+				goarg0 := 20
+				ectx := pkg0.InitGoroutine()
+				go func() {
+					defer pkg0.FinalizeGoroutine(ectx)
+					gofn(goarg, goarg0)
+				}()
+			}
+		}
+		goarg1 := 10
+		ectx0 := pkg0.InitGoroutine()
+		go func() {
+			defer pkg0.FinalizeGoroutine(ectx0)
+			gofn0(goarg1)
+		}()
+	}
+}
+var (
+	f func(x int, y int) int
+)

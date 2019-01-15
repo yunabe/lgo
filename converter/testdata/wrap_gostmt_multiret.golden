@@ -1,0 +1,21 @@
+package lgo_exec
+
+import pkg0 "github.com/yunabe/lgo/core"
+import "fmt"
+func xy(x, y int) {
+	fmt.Println(x, y)
+}
+func two() (int, int) {
+	return 3, 4
+}
+func lgo_init() {
+	{
+		gofn := xy
+		goarg, goarg0 := two()
+		ectx := pkg0.InitGoroutine()
+		go func() {
+			defer pkg0.FinalizeGoroutine(ectx)
+			gofn(goarg, goarg0)
+		}()
+	}
+}

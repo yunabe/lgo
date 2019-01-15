@@ -1217,7 +1217,17 @@ func capturePanicInGoRoutine(file *ast.File, immg *importManager, checker *types
 //
 // This converts
 // go f(x, y)
+//
 // to
+//
+// {
+//   ctx := InitGoroutine()
+//   fn := f
+//   go func(arg0, arg1 int) {
+//     defer FinalizeGoRoutine(ctx)
+//     fn(arg0, arg1)
+//   }(x, y)
+// }
 // go func() {
 //   defer core.FinalizeGoRoutine(core.InitGoroutine())
 //   f(x, y)
@@ -1226,44 +1236,6 @@ type wrapGoStmtVisitor struct {
 	immg    *importManager
 	picker  *namePicker
 	checker *types.Checker
-}
-
-func (v *wrapGoStmtVisitor) genFuncType(sig *types.Signature) ([]ast.Expr, *ast.FuncType) {
-	params := sig.Params()
-	len := params.Len()
-
-	var args []ast.Expr
-	var fields []*ast.Field
-	for i := 0; i < len; i++ {
-		argTyp := params.At(i).Type()
-		var typExp ast.Expr
-		if i == len-1 && sig.Variadic() {
-			if s, ok := argTyp.(*types.Slice); ok {
-				typStr := types.TypeString(s.Elem(),
-					func(pkg *types.Package) string {
-						return v.immg.shortName(pkg)
-					})
-				typExp = &ast.Ellipsis{Elt: &ast.Ident{Name: typStr}}
-			} else {
-				panic("internal error: slice type expected")
-			}
-		} else {
-			typStr := types.TypeString(argTyp,
-				func(pkg *types.Package) string {
-					return v.immg.shortName(pkg)
-				})
-			typExp = &ast.Ident{Name: typStr}
-		}
-		arg := v.picker.NewName("goarg")
-		args = append(args, &ast.Ident{Name: arg})
-		fields = append(fields, &ast.Field{
-			Names: []*ast.Ident{{Name: arg}},
-			Type:  typExp,
-		})
-	}
-	return args, &ast.FuncType{
-		Params: &ast.FieldList{List: fields},
-	}
 }
 
 func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
@@ -1278,6 +1250,7 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 		if !ok {
 			continue
 		}
+		// bind func
 		fnName := v.picker.NewName("gofn")
 		body := []ast.Stmt{
 			&ast.AssignStmt{
@@ -1286,54 +1259,68 @@ func (v *wrapGoStmtVisitor) Visit(node ast.Node) ast.Visitor {
 				Tok: token.DEFINE,
 			},
 		}
+		// bind arguments
+		var args []ast.Expr
+		for _, arg := range g.Call.Args {
+			argSize := 1
+			if tup, ok := v.checker.Types[arg].Type.(*types.Tuple); ok {
+				argSize = tup.Len()
+			}
+			var lhs []ast.Expr
+			for i := 0; i < argSize; i++ {
+				name := v.picker.NewName("goarg")
+				args = append(args, &ast.Ident{Name: name})
+				lhs = append(lhs, &ast.Ident{Name: name})
+			}
+			body = append(body, &ast.AssignStmt{
+				Lhs: lhs,
+				Rhs: []ast.Expr{arg},
+				Tok: token.DEFINE,
+			})
+		}
+		// Add ectx := InitGoroutine()
 		ectx := v.picker.NewName("ectx")
-		var bindBody []ast.Stmt
-		bindBody = append(bindBody, &ast.AssignStmt{
+		body = append(body, &ast.AssignStmt{
 			Lhs: []ast.Expr{&ast.Ident{Name: ectx}},
 			Rhs: []ast.Expr{&ast.CallExpr{
 				Fun: ast.NewIdent(v.immg.shortName(corePkg) + ".InitGoroutine"),
 			}},
 			Tok: token.DEFINE,
 		})
-
-		args, funTyp := v.genFuncType(v.checker.Types[g.Call.Fun].Type.(*types.Signature))
-
-		bindBody = append(bindBody, &ast.GoStmt{
-			Call: &ast.CallExpr{Fun: &ast.FuncLit{
-				Type: &ast.FuncType{},
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.DeferStmt{
-							Call: &ast.CallExpr{
-								Fun: &ast.SelectorExpr{
-									X:   &ast.Ident{Name: v.immg.shortName(corePkg)},
-									Sel: &ast.Ident{Name: "FinalizeGoroutine"},
-								},
-								Args: []ast.Expr{&ast.Ident{Name: ectx}},
-							},
-						},
-						&ast.ExprStmt{X: &ast.CallExpr{
-							Fun:  &ast.Ident{Name: fnName},
-							Args: args,
-						}},
-					},
-				},
-			}},
-		})
-		body = append(body, &ast.ExprStmt{
-			X: &ast.CallExpr{
+		// Add a statement like:
+		// go func() {
+		//   defer FinalizeGoRoutine(ectx)
+		//   gofn(goarg, goarg0, goarg1...)
+		// }
+		body = append(body, &ast.GoStmt{
+			Call: &ast.CallExpr{
 				Fun: &ast.FuncLit{
-					Type: funTyp,
+					Type: &ast.FuncType{},
 					Body: &ast.BlockStmt{
-						List: bindBody,
+						List: []ast.Stmt{
+							&ast.DeferStmt{
+								Call: &ast.CallExpr{
+									Fun: &ast.SelectorExpr{
+										X:   &ast.Ident{Name: v.immg.shortName(corePkg)},
+										Sel: &ast.Ident{Name: "FinalizeGoroutine"},
+									},
+									Args: []ast.Expr{&ast.Ident{Name: ectx}},
+								},
+							},
+							&ast.ExprStmt{X: &ast.CallExpr{
+								Fun:      &ast.Ident{Name: fnName},
+								Args:     args,
+								Ellipsis: g.Call.Ellipsis,
+							}},
+						},
 					},
 				},
-				Args: g.Call.Args,
 			},
 		})
 		b.List[i] = &ast.BlockStmt{List: body}
 	}
-	// Do not visit this node again.
+	// Do not visit children of this node!
+	// We must not visit auto-generated go statements.
 	return nil
 }
 
