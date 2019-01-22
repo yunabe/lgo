@@ -86,6 +86,9 @@ If you are using Linux or Mac OS, you can use start/stop scripts instead. Web br
 - Install the kernel configuration to Jupyter Notebook
   - `python $(go env GOPATH)/src/github.com/yunabe/lgo/bin/install_kernel`
   - Make sure to use the same version of `python` as you used to install `jupyter`. For example, use `python3` instead of `python` if you install `jupyter` with `pip3`.
+- (Optional) If you want to use `lgo` with JupyterLab, install a jupyterlab extension for `lgo`
+  - `jupyter labextension install @yunabe/lgo_extension`
+  - This extension adds "Go Format" button to the toolbar in JupyterLab.
 
 ## Usage: Jupyter Notebook
 - Run `jupyter notebook` command to start Juyputer Notebook and select "Go (lgo)" from New Notebook menu.
