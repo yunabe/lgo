@@ -11,8 +11,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"github.com/golang/glog"
 )
 
 const executeQueueSize = 1 << 8
@@ -66,7 +64,7 @@ loop:
 			return nil
 		}, item.req)
 		if err != nil {
-			glog.Errorf("Failed to abort a execute request: %v", err)
+			logger.Errorf("Failed to abort a execute request: %v", err)
 		}
 	}
 }
@@ -110,7 +108,7 @@ loop:
 			res.Header.MsgType = "execute_reply"
 			res.Content = &result
 			if err := item.sock.pushResult(res); err != nil {
-				glog.Errorf("Failed to send execute_reply: %v", err)
+				logger.Errorf("Failed to send execute_reply: %v", err)
 			}
 			if result.Status == "error" {
 				return errStatusError
@@ -119,7 +117,7 @@ loop:
 		}, item.req)
 		if err != nil {
 			if err != errStatusError {
-				glog.Errorf("Failed to handle a execute_request: %v", err)
+				logger.Errorf("Failed to handle a execute_request: %v", err)
 			}
 			if exReq.StopOnError {
 				q.abortQueue()

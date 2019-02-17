@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/glog"
 	zmq "github.com/pebbe/zmq4"
 )
 
@@ -131,7 +130,7 @@ func (s *iopubSocket) sendStream(name, text string, parent *message) {
 		Text: text,
 	}
 	if err := s.sendMessage(&msg); err != nil {
-		glog.Errorf("Failed to send stream: %v", err)
+		logger.Errorf("Failed to send stream: %v", err)
 	}
 }
 
@@ -140,7 +139,7 @@ func (s *iopubSocket) sendDisplayData(data *DisplayData, parent *message, update
 	msgType := "display_data"
 	if update {
 		if data.Transient["display_id"] == nil {
-			glog.Warning("update_display_data with no display_id")
+			logger.Warning("update_display_data with no display_id")
 		}
 		msgType = "update_display_data"
 	}
@@ -158,7 +157,7 @@ func (s *iopubSocket) sendDisplayData(data *DisplayData, parent *message, update
 	msg.ParentHeader = parent.Header
 	msg.Content = data
 	if err := s.sendMessage(&msg); err != nil {
-		glog.Errorf("Failed to send stream: %v", err)
+		logger.Errorf("Failed to send stream: %v", err)
 	}
 }
 
@@ -267,27 +266,27 @@ loop:
 		if isEINTR(err) {
 			// It seems like poller.Poll sometimes return EINTR when a signal is sent
 			// even if a signal handler for SIGINT is registered.
-			glog.Info("zmq.Poll was interrupted")
+			logger.Info("zmq.Poll was interrupted")
 			continue
 		}
 		if err != nil {
-			glog.Errorf("Poll on %s socket failed: %v", s.name, err)
+			logger.Errorf("Poll on %s socket failed: %v", s.name, err)
 			continue
 		}
 		for _, p := range polled {
 			switch p.Socket {
 			case s.socket:
 				if err := s.handleMessages(); err != nil {
-					glog.Errorf("Failed to handle a message on %s socket: %v", s.name, err)
+					logger.Errorf("Failed to handle a message on %s socket: %v", s.name, err)
 				}
 			case s.resultPull:
 				err := s.handleResultPull()
 				if err == errLoopEnd {
-					glog.Infof("Exiting polling loop for %s", s.name)
+					logger.Infof("Exiting polling loop for %s", s.name)
 					break loop
 				}
 				if err != nil {
-					glog.Infof("Failed to handle a message on the result socket of %s: %v", s.name, err)
+					logger.Infof("Failed to handle a message on the result socket of %s: %v", s.name, err)
 				}
 			default:
 				panic(errors.New("zmq.Poll returned an unexpected socket"))
@@ -319,14 +318,14 @@ func (s *shellSocket) handleMessages() error {
 	if err != nil {
 		return fmt.Errorf("Failed to unmarshal messages from %s: %v", s.name, err)
 	}
-	glog.Warningf("MsgType in %s: %q", s.name, msg.Header.MsgType)
+	logger.Warningf("MsgType in %s: %q", s.name, msg.Header.MsgType)
 	switch typ := msg.Header.MsgType; typ {
 	case "kernel_info_request":
 		if err := s.sendKernelInfo(&msg); err != nil {
-			glog.Errorf("Failed to handle kernel_info_request: %v", err)
+			logger.Errorf("Failed to handle kernel_info_request: %v", err)
 		}
 	case "shutdown_request":
-		glog.Info("received shutdown_request.")
+		logger.Info("received shutdown_request.")
 		s.cancelCtx()
 		// TODO: Send shutdown_reply
 	case "execute_request":
@@ -391,7 +390,7 @@ func (s *shellSocket) handleMessages() error {
 			s.pushResult(res)
 		}()
 	default:
-		glog.Warningf("Unsupported MsgType in %s: %q", s.name, typ)
+		logger.Warningf("Unsupported MsgType in %s: %q", s.name, typ)
 	}
 	return nil
 }

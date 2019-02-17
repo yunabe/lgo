@@ -17,7 +17,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/golang/glog"
 	zmq "github.com/pebbe/zmq4"
 )
 
@@ -40,12 +39,12 @@ func readConnectionInfo(connectionFile string) (*connectionInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read %s: %v", connectionFile, err)
 	}
-	glog.Infof("Connection info JSON: %v", string(b))
+	logger.Infof("Connection info JSON: %v", string(b))
 	var cinfo connectionInfo
 	if err = json.Unmarshal(b, &cinfo); err != nil {
 		return nil, fmt.Errorf("Failed to parse %s: %v", connectionFile, err)
 	}
-	glog.Infof("Connection info: %+v", cinfo)
+	logger.Infof("Connection info: %+v", cinfo)
 	return &cinfo, nil
 }
 
@@ -149,7 +148,7 @@ func (s *Server) monitorSigint() {
 	signal.Notify(ch, syscall.SIGINT)
 	go func() {
 		for range ch {
-			glog.Info("Received SIGINT. Cancelling an ongoing execute_request")
+			logger.Info("Received SIGINT. Cancelling an ongoing execute_request")
 			s.execQueue.cancelCurrent()
 		}
 	}()
@@ -160,7 +159,7 @@ func (s *Server) monitorTerminationSignals() {
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
 	go func() {
 		for sig := range ch {
-			glog.Infof("Received a signal (%s), terminating the kernel.", sig)
+			logger.Infof("Received a signal (%s), terminating the kernel.", sig)
 			s.cancelCtx()
 		}
 	}()
@@ -177,11 +176,11 @@ func isEINTR(err error) bool {
 // Loop starts the server main loop
 func (s *Server) Loop() {
 	go func() {
-		glog.Info("Forwarding heartbeat requests")
+		logger.Info("Forwarding heartbeat requests")
 		if err := zmq.Proxy(s.hb, s.hb, nil); err != nil {
-			glog.Fatalf("Failed to echo heartbeat request: %v", err)
+			logger.Fatalf("Failed to echo heartbeat request: %v", err)
 		}
-		glog.Info("Quitting goroutine for heartbeat requests")
+		logger.Info("Quitting goroutine for heartbeat requests")
 	}()
 	s.monitorSigint()
 	s.monitorTerminationSignals()
@@ -203,23 +202,23 @@ func (s *Server) Loop() {
 	<-execDone
 
 	if err := s.shell.notifyLoopEnd(); err != nil {
-		glog.Errorf("Failed to notify the loop end to shell socket: %v", err)
+		logger.Errorf("Failed to notify the loop end to shell socket: %v", err)
 	}
 	if err := s.control.notifyLoopEnd(); err != nil {
-		glog.Errorf("Failed to notify the loop end to control socket: %v", err)
+		logger.Errorf("Failed to notify the loop end to control socket: %v", err)
 	}
 	// Wait loop ends
 	<-sockDone
 	<-sockDone
 
 	if err := s.iopub.close(); err != nil {
-		glog.Errorf("Failed to close iopub socket: %v", err)
+		logger.Errorf("Failed to close iopub socket: %v", err)
 	}
 	if err := s.shell.close(); err != nil {
-		glog.Errorf("Failed to close shell socket: %v", err)
+		logger.Errorf("Failed to close shell socket: %v", err)
 	}
 	if err := s.control.close(); err != nil {
-		glog.Errorf("Failed to close control socket: %v", err)
+		logger.Errorf("Failed to close control socket: %v", err)
 	}
 
 	// TODO: Support stdin.

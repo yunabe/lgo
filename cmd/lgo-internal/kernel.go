@@ -275,8 +275,25 @@ func (kernelLogWriter) Write(p []byte) (n int, err error) {
 	return os.Stderr.Write(p)
 }
 
+type glogLogger struct{}
+
+func (*glogLogger) Info(msg string) {
+	// 0: here, 1: loggerWrapper methods, 2: caller
+	glog.InfoDepth(2, msg)
+}
+func (*glogLogger) Warning(msg string) {
+	glog.WarningDepth(2, msg)
+}
+func (*glogLogger) Error(msg string) {
+	glog.ErrorDepth(2, msg)
+}
+func (*glogLogger) Fatal(msg string) {
+	glog.FatalDepth(2, msg)
+}
+
 func kernelMain(lgopath string, sessID *runner.SessionID) {
 	log.SetOutput(kernelLogWriter{})
+	scaffold.SetLogger(&glogLogger{})
 	server, err := scaffold.NewServer(*connectionFile, &handlers{
 		runner: runner.NewLgoRunner(lgopath, sessID),
 	})
