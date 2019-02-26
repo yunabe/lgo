@@ -294,7 +294,7 @@ func (*glogLogger) Fatal(msg string) {
 func kernelMain(lgopath string, sessID *runner.SessionID) {
 	log.SetOutput(kernelLogWriter{})
 	scaffold.SetLogger(&glogLogger{})
-	server, err := scaffold.NewServer(*connectionFile, &handlers{
+	server, err := scaffold.NewServer(context.Background(), *connectionFile, &handlers{
 		runner: runner.NewLgoRunner(lgopath, sessID),
 	})
 	if err != nil {

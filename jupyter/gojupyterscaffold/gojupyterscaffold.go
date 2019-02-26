@@ -75,8 +75,8 @@ type Server struct {
 }
 
 // NewServer returns a new jupyter kernel server.
-func NewServer(connectionFile string, handlers RequestHandlers) (server *Server, err error) {
-	serverCtx, cancelCtx := context.WithCancel(context.Background())
+func NewServer(bgCtx context.Context, connectionFile string, handlers RequestHandlers) (server *Server, err error) {
+	serverCtx, cancelCtx := context.WithCancel(bgCtx)
 	defer func() {
 		// Avoid ctx leak
 		// https://golang.org/pkg/context/
