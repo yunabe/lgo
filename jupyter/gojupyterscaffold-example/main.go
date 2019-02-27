@@ -109,7 +109,7 @@ func main() {
 	fmt.Printf("os.Args == %+v\n", os.Args)
 	fmt.Printf("connection_file == %s\n", *connectionFile)
 
-	server, err := scaffold.NewServer(*connectionFile, &handlers{})
+	server, err := scaffold.NewServer(context.Background(), *connectionFile, &handlers{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create a server: %v\n", err)
 		os.Exit(1)
