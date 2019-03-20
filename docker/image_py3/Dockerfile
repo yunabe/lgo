@@ -1,4 +1,4 @@
-FROM golang:1.9
+FROM golang:1.11
 
 # Install Jupyter Notebook
 # `hash -r pip` is a workaround of pip v10 related issue (https://github.com/pypa/pip/issues/5221#issuecomment-382069604)
