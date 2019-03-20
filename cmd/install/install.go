@@ -178,16 +178,18 @@ func (w *walker) walk(path string) bool {
 	if w.visited[path] {
 		return true
 	}
+	pkg, err := w.si.getPackage(path)
+	if err != nil {
+		w.logf("failed to get package info for %q: %v", path, err)
+		return false
+	}
+	if pkg.Name == "main" {
+		return true
+	}
 	if w.visited == nil {
 		w.visited = make(map[string]bool)
 	}
 	w.visited[path] = true
-	pkg, err := w.si.getPackage(path)
-	if err != nil {
-		w.logf("failed to get package info for %q: %v", path, err)
-		w.progress++
-		return false
-	}
 	depok := true
 	for _, im := range pkg.Imports {
 		if ok := w.walk(im); !ok {
