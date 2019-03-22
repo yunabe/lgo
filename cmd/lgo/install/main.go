@@ -108,9 +108,6 @@ func InstallMain() {
 		log.Fatalf("Failed to build the shared object of the core library: %v", err)
 	}
 
-	log.Print("Building third-party packages in $GOPATH")
-	// buildThirdPartyPackages(pkgDir, newPackageBlackList(*packageBlacklists))
-
 	log.Print("Installing lgo-internal")
 	cmd = exec.Command("go", "build", "-pkgdir", pkgDir, "-linkshared",
 		"-o", path.Join(binDir, "lgo-internal"), "github.com/yunabe/lgo/cmd/lgo-internal")
