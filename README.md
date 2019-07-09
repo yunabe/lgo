@@ -1,6 +1,15 @@
-# lgo [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master?filepath=basics.ipynb) [![Go Report Card](https://goreportcard.com/badge/github.com/yunabe/lgo)](https://goreportcard.com/report/github.com/yunabe/lgo) [![cover.run](https://cover.run/go/https:/github.com/yunabe/lgo.svg?style=flat&tag=golang-1.9)](https://cover.run/go?tag=golang-1.9&repo=https%3A%2Fgithub.com%2Fyunabe%2Flgo)
+# lgo [![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/yunabe/lgo-binder/master?filepath=basics.ipynb) [![Go Report Card](https://goreportcard.com/badge/github.com/yunabe/lgo)](https://goreportcard.com/report/github.com/yunabe/lgo)
 
 Go (golang) Jupyter Notebook kernel and an interactive REPL
+
+## Disclaimer
+
+Since go1.10, this Go kernel has performance issue due to [a performance regression in Go tool chain](https://github.com/golang/go/issues/24034).
+
+Also, this Go kernel can not be built with go1.12 due to [another regression in Go tool chain](https://github.com/golang/go/issues/30768).
+
+Now, the compiler options this kernel relies on are completely broken and I'm not sure when they will fix the regressions.
+Unfortunately, they don't plan to fix this in go1.13 as of July 8th 2019. If you are interested in using this kernel, please upvote the bugs. For a while, please use other Go kernels if you want to use the later version of Go with Jupyter notebook.
 
 ## Medium Post
 - [Go (golang) Jupyter Notebook kernel and an interactive REPL - April 16, 2018](https://medium.com/@yunabe/interactive-go-programming-with-jupyter-93fbf089aff1)
