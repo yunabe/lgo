@@ -19,6 +19,7 @@ import (
 	"github.com/yunabe/lgo/cmd/install"
 	"github.com/yunabe/lgo/converter"
 	"github.com/yunabe/lgo/core"
+	"github.com/yunabe/lgo/cmd/lgo-internal/magics"
 )
 
 /*
@@ -258,4 +259,25 @@ func (rn *LgoRunner) Inspect(ctx context.Context, src string, index int) (string
 		return "", err
 	}
 	return strings.Replace(buf.String(), lgoExportPrefix, "", -1), nil
+}
+
+func (rn *LgoRunner) RunMagics(ctx core.LgoContext, src string) error {
+	rn.execCount++
+	magicFunctionWithArgs := strings.TrimSpace(src)[1:]
+	magic := magicFunctionWithArgs
+	magicFunctionIndex := strings.Index(magicFunctionWithArgs, " ")
+	var arguments string
+	if magicFunctionIndex != -1 {
+		magic = magicFunctionWithArgs[:magicFunctionIndex]
+		arguments = magicFunctionWithArgs[magicFunctionIndex:]
+	}
+
+	if f, ok := magics.GetRegisteredMagics()[magic]; ok {
+		f(ctx, arguments, rn.Run)
+	} else  {
+		core.LgoPrintln(fmt.Sprintf("UsageError: Line magic function `%%%s` not found.", magic))
+		return  nil
+	}
+
+	return  nil
 }

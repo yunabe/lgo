@@ -176,8 +176,17 @@ func (h *handlers) HandleExecuteRequest(ctx context.Context, r *scaffold.Execute
 				fmt.Fprintf(os.Stderr, "panic: %v\n\n%s", p, debug.Stack())
 			}
 		}()
+
+		var f func(core.LgoContext, string) error
+		trimmedCode := strings.TrimSpace(r.Code)
+		if strings.Index(trimmedCode, "\n") == -1 && strings.HasPrefix(trimmedCode, "%"){
+			f = h.runner.RunMagics
+		} else  {
+			f = h.runner.Run
+		}
+
 		// Print the err in the notebook
-		if err = h.runner.Run(lgoCtx, r.Code); err != nil {
+		if err = f(lgoCtx, r.Code); err != nil {
 			runner.PrintError(os.Stderr, err)
 		}
 	}()
