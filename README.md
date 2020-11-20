@@ -73,6 +73,7 @@ If you are using Linux or Mac OS, you can use start/stop scripts instead. Web br
 - Install [Jupyter Notebook](http://jupyter.readthedocs.io/en/latest/install.html)
 - [Install ZMQ](http://zeromq.org/distro:debian)
   - e.g. `sudo apt-get install libzmq3-dev`
+  - e.g. CentOS 7 `yum install zeromq3-devel`
 - [Install pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
   - e.g. `sudo apt-get install pkg-config`
 
